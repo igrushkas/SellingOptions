@@ -124,11 +124,9 @@ export async function fetchTodaysPlaysDirect() {
 
   console.log(`[EarningsAPI] Found ${amcRaw.length} AMC (${todayStr}), ${bmoRaw.length} BMO (${nextTradingDayStr})`);
 
-  // Enrich with profile + historical data (rate-limited)
-  const [amcEnriched, bmoEnriched] = await Promise.all([
-    enrichBatchRateLimited(amcRaw, 'AMC', keys),
-    enrichBatchRateLimited(bmoRaw, 'BMO', keys),
-  ]);
+  // Enrich with profile + historical data (SEQUENTIAL to respect 60 calls/min)
+  const amcEnriched = await enrichBatchRateLimited(amcRaw, 'AMC', keys);
+  const bmoEnriched = await enrichBatchRateLimited(bmoRaw, 'BMO', keys);
 
   // Filter out penny stocks and micro-caps
   const amcFiltered = amcEnriched.filter(e => e.price >= MIN_PRICE);
@@ -200,9 +198,13 @@ async function enrichSingle(entry, timing, keys) {
     hasWeeklyOptions: true,
     impliedMove: 0,
     historicalMoves,
-    epsEstimate: entry.epsEstimate || null,
-    epsPrior: entry.epsActual || null,
+    // Finnhub calendar fields
+    epsEstimate: entry.epsEstimate ?? null,
+    epsPrior: entry.epsActual ?? null,
     revenueEstimate: entry.revenueEstimate ? formatRevenue(entry.revenueEstimate) : null,
+    revenueActual: entry.revenueActual ? formatRevenue(entry.revenueActual) : null,
+    quarter: entry.quarter || null,
+    year: entry.year || null,
     consensusRating: '',
     analystCount: 0,
     news: [],

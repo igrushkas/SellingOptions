@@ -145,7 +145,7 @@ async function enrichAll(rawEarnings, keys) {
 }
 
 async function enrichTicker(entry, keys) {
-  const { ticker, date, timing, epsEstimate, epsPrior, revenueEstimate } = entry;
+  const { ticker, date, timing, epsEstimate, epsPrior, revenueEstimate, revenueActual, quarter, year } = entry;
 
   const [yahooData, historicalMoves] = await Promise.all([
     fetchYahooQuote(ticker),
@@ -164,9 +164,12 @@ async function enrichTicker(entry, keys) {
     hasWeeklyOptions: true,
     impliedMove: 0,
     historicalMoves,
-    epsEstimate: epsEstimate || null,
-    epsPrior: epsPrior || null,
+    epsEstimate: epsEstimate ?? null,
+    epsPrior: epsPrior ?? null,
     revenueEstimate: revenueEstimate ? formatRevenue(revenueEstimate) : null,
+    revenueActual: revenueActual ? formatRevenue(revenueActual) : null,
+    quarter: quarter || null,
+    year: year || null,
     consensusRating: '',
     analystCount: 0,
     news: [],

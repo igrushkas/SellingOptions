@@ -33,6 +33,7 @@ export async function fetchEarningsCalendar(apiKey, fromDate, toDate) {
     epsEstimate: e.epsEstimate,
     epsPrior: e.epsActual,
     revenueEstimate: e.revenueEstimate,
+    revenueActual: e.revenueActual,
     quarter: e.quarter,
     year: e.year,
     source: 'finnhub',
