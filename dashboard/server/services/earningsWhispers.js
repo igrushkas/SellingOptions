@@ -3,20 +3,18 @@
  *
  * Flow: Finnhub (primary) → FMP (fallback) → Error (no mock)
  *
- * After fetching the calendar, enriches each ticker with:
- * - Yahoo Finance → stock price, company name
- * - Finnhub earnings surprises → historicalMoves (last 20 quarters)
- *
- * Caches enriched results for 1 hour.
+ * On Friday: fetches Fri AMC through Mon BMO (full weekend window).
+ * Filters out penny stocks (< $5).
+ * Rate-limits enrichment to respect API limits.
  */
 
 import https from 'https';
 import { fetchEarningsCalendar as finnhubCalendar, fetchEarningsSurprises } from './finnhub.js';
 import { fetchEarningsCalendar as fmpCalendar } from './fmp.js';
 
-// In-memory cache: { [key]: { data, fetchedAt } }
 const cache = {};
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const MIN_PRICE = 5;
 
 function getKeys() {
   return {
@@ -27,10 +25,9 @@ function getKeys() {
 
 /**
  * Fetch earnings for a date range + timing filter.
- * Tries Finnhub first, then FMP.
  */
-export async function scrapeEarningsCalendar(dateStr, timing) {
-  const cacheKey = `cal:${dateStr}:${timing || 'all'}`;
+export async function scrapeEarningsCalendar(fromDate, toDate, timing) {
+  const cacheKey = `cal:${fromDate}:${toDate}:${timing || 'all'}`;
 
   if (cache[cacheKey] && Date.now() - cache[cacheKey].fetchedAt < CACHE_TTL) {
     return cache[cacheKey].data;
@@ -40,12 +37,12 @@ export async function scrapeEarningsCalendar(dateStr, timing) {
   let rawEarnings = [];
   let source = 'none';
 
-  // Try Finnhub first
+  // Try Finnhub
   if (keys.finnhub) {
     try {
-      rawEarnings = await finnhubCalendar(keys.finnhub, dateStr, dateStr);
+      rawEarnings = await finnhubCalendar(keys.finnhub, fromDate, toDate);
       source = 'finnhub';
-      console.log(`[Orchestrator] Finnhub returned ${rawEarnings.length} earnings for ${dateStr}`);
+      console.log(`[Orchestrator] Finnhub: ${rawEarnings.length} earnings for ${fromDate}→${toDate}`);
     } catch (err) {
       console.warn(`[Orchestrator] Finnhub failed: ${err.message}`);
     }
@@ -54,38 +51,35 @@ export async function scrapeEarningsCalendar(dateStr, timing) {
   // Fallback to FMP
   if (rawEarnings.length === 0 && keys.fmp) {
     try {
-      rawEarnings = await fmpCalendar(keys.fmp, dateStr, dateStr);
+      rawEarnings = await fmpCalendar(keys.fmp, fromDate, toDate);
       source = 'fmp';
-      console.log(`[Orchestrator] FMP returned ${rawEarnings.length} earnings for ${dateStr}`);
+      console.log(`[Orchestrator] FMP: ${rawEarnings.length} earnings for ${fromDate}→${toDate}`);
     } catch (err) {
       console.warn(`[Orchestrator] FMP failed: ${err.message}`);
     }
   }
 
   if (rawEarnings.length === 0 && !keys.finnhub && !keys.fmp) {
-    return {
-      date: dateStr,
-      timing,
-      source: 'error',
-      error: 'No API keys configured. Set FINNHUB_API_KEY and/or FMP_API_KEY in .env',
-      earnings: [],
-    };
+    return { date: fromDate, timing, source: 'error', error: 'No API keys configured', earnings: [] };
   }
 
-  // Filter by timing if specified
+  // Filter by timing
   if (timing) {
     rawEarnings = rawEarnings.filter(e => e.timing === timing);
   }
 
-  // Enrich all tickers in parallel (price, company, historical moves)
+  // Enrich (rate-limited batches)
   const enriched = await enrichAll(rawEarnings, keys);
 
+  // Filter penny stocks
+  const filtered = enriched.filter(e => e.price >= MIN_PRICE);
+
   const result = {
-    date: dateStr,
+    date: fromDate,
     timing: timing || 'all',
     source,
-    count: enriched.length,
-    earnings: enriched,
+    count: filtered.length,
+    earnings: filtered,
   };
 
   cache[cacheKey] = { data: result, fetchedAt: Date.now() };
@@ -93,7 +87,8 @@ export async function scrapeEarningsCalendar(dateStr, timing) {
 }
 
 /**
- * Fetch today's actionable plays: tonight's AMC + next trading day's BMO.
+ * Fetch today's actionable plays.
+ * On Friday: Fri AMC + Mon BMO (covers full weekend).
  */
 export async function getTodaysPlays() {
   const today = new Date();
@@ -101,27 +96,33 @@ export async function getTodaysPlays() {
   const nextDay = getNextTradingDay(today);
   const nextDayStr = fmt(nextDay);
 
-  console.log(`[Orchestrator] Today=${todayStr}, NextTradingDay=${nextDayStr}`);
+  console.log(`[Orchestrator] Today=${todayStr} (${getDayName(todayStr)}), Next=${nextDayStr} (${getDayName(nextDayStr)})`);
 
+  // Fetch AMC: today through day before next trading day (covers weekend)
+  // Fetch BMO: next trading day only
   const [amcResult, bmoResult] = await Promise.all([
-    scrapeEarningsCalendar(todayStr, 'AMC'),
-    scrapeEarningsCalendar(nextDayStr, 'BMO'),
+    scrapeEarningsCalendar(todayStr, nextDayStr, 'AMC'),
+    scrapeEarningsCalendar(nextDayStr, nextDayStr, 'BMO'),
   ]);
+
+  // For AMC, only include stocks reporting today or over the weekend (not next trading day)
+  const amcEarnings = amcResult.earnings.filter(e => e.date < nextDayStr);
 
   return {
     today: todayStr,
     nextTradingDay: nextDayStr,
-    amcEarnings: amcResult.earnings,
+    amcEarnings,
     bmoEarnings: bmoResult.earnings,
     sources: { amc: amcResult.source, bmo: bmoResult.source },
+    amcLabel: `${getDayName(todayStr)} Evening (AMC)`,
+    bmoLabel: `${getDayName(nextDayStr)} Morning (BMO)`,
   };
 }
 
 // ── Enrichment ──
 
 async function enrichAll(rawEarnings, keys) {
-  // Process in batches of 10 to respect rate limits
-  const batchSize = 10;
+  const batchSize = 5;
   const results = [];
 
   for (let i = 0; i < rawEarnings.length; i += batchSize) {
@@ -134,6 +135,10 @@ async function enrichAll(rawEarnings, keys) {
         results.push(r.value);
       }
     }
+    // Rate limit between batches
+    if (i + batchSize < rawEarnings.length) {
+      await new Promise(resolve => setTimeout(resolve, 1200));
+    }
   }
 
   return results;
@@ -142,7 +147,6 @@ async function enrichAll(rawEarnings, keys) {
 async function enrichTicker(entry, keys) {
   const { ticker, date, timing, epsEstimate, epsPrior, revenueEstimate } = entry;
 
-  // Fetch in parallel: Yahoo Finance price + Finnhub historical earnings
   const [yahooData, historicalMoves] = await Promise.all([
     fetchYahooQuote(ticker),
     keys.finnhub ? fetchEarningsSurprises(keys.finnhub, ticker) : Promise.resolve([]),
@@ -158,7 +162,7 @@ async function enrichTicker(entry, keys) {
     date,
     timing,
     hasWeeklyOptions: true,
-    impliedMove: 0, // requires options chain data
+    impliedMove: 0,
     historicalMoves,
     epsEstimate: epsEstimate || null,
     epsPrior: epsPrior || null,
@@ -169,15 +173,12 @@ async function enrichTicker(entry, keys) {
   };
 }
 
-// ── Yahoo Finance ──
-
 async function fetchYahooQuote(ticker) {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
     const json = await fetchJSON(url);
     const meta = json?.chart?.result?.[0]?.meta;
     if (!meta) return { name: ticker, price: 0, marketCap: '' };
-
     return {
       name: meta.longName || meta.shortName || ticker,
       price: meta.regularMarketPrice || meta.previousClose || 0,
@@ -188,7 +189,7 @@ async function fetchYahooQuote(ticker) {
   }
 }
 
-// ── Formatters ──
+// ── Helpers ──
 
 function formatMarketCap(mc) {
   if (!mc || mc === 0) return '';
@@ -210,11 +211,17 @@ function fmt(d) {
   return d.toISOString().split('T')[0];
 }
 
+function getDayName(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long' });
+}
+
 function getNextTradingDay(date) {
   const next = new Date(date);
   const day = next.getDay();
   if (day === 5) next.setDate(next.getDate() + 3);      // Fri → Mon
   else if (day === 6) next.setDate(next.getDate() + 2);  // Sat → Mon
+  else if (day === 0) next.setDate(next.getDate() + 1);  // Sun → Mon
   else next.setDate(next.getDate() + 1);
   return next;
 }
@@ -222,15 +229,10 @@ function getNextTradingDay(date) {
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
       timeout: 10000,
     }, (res) => {
-      if (res.statusCode !== 200) {
-        return reject(new Error(`HTTP ${res.statusCode}`));
-      }
+      if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
