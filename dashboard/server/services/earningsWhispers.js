@@ -11,7 +11,7 @@
 import https from 'https';
 import { fetchEarningsCalendar as finnhubCalendar, fetchEarningsSurprises } from './finnhub.js';
 import { fetchEarningsCalendar as fmpCalendar } from './fmp.js';
-import { fetchImpliedMove as tradierImpliedMove } from './tradier.js';
+import { fetchImpliedMove as yahooImpliedMove } from './yahooOptions.js';
 
 const cache = {};
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -19,7 +19,6 @@ const MIN_PRICE = 5;
 
 function getKeys() {
   return {
-    tradier: process.env.TRADIER_TOKEN || '',
     finnhub: process.env.FINNHUB_API_KEY || '',
     fmp: process.env.FMP_API_KEY || '',
   };
@@ -156,11 +155,11 @@ async function enrichTicker(entry, keys) {
 
   const price = yahooData.price || 0;
 
-  // Fetch implied move from Tradier options chain
+  // Fetch implied move from Yahoo Finance options chain (free, no API key)
   let impliedMove = 0;
   let optionsData = null;
-  if (keys.tradier && price > 0) {
-    optionsData = await tradierImpliedMove(keys.tradier, ticker, price);
+  if (price > 0) {
+    optionsData = await yahooImpliedMove(ticker, price);
     if (optionsData) {
       impliedMove = optionsData.impliedMove;
     }
