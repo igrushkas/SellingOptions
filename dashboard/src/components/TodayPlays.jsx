@@ -67,16 +67,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
   );
 }
 
-export default function TodayPlays({ earnings, onSelectStock, onAddTrade }) {
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const hour = now.getHours();
-
-  // Tonight's AMC earnings (sell options during market hours today, IV crush tomorrow AM)
-  const tonightAMC = earnings.filter(e => e.timing === 'AMC');
-  // Tomorrow morning BMO earnings (sell options today before close, IV crush at open)
-  const tomorrowBMO = earnings.filter(e => e.timing === 'BMO');
-
+export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], onSelectStock, onAddTrade }) {
   // Sort by signal quality — best setups first
   const signalOrder = { excellent: 0, good: 1, neutral: 2, risky: 3 };
   const sortBySignal = (a, b) => {
@@ -85,8 +76,8 @@ export default function TodayPlays({ earnings, onSelectStock, onAddTrade }) {
     return signalOrder[sa] - signalOrder[sb];
   };
 
-  tonightAMC.sort(sortBySignal);
-  tomorrowBMO.sort(sortBySignal);
+  const tonightAMC = [...amcEarnings].sort(sortBySignal);
+  const tomorrowBMO = [...bmoEarnings].sort(sortBySignal);
 
   return (
     <div className="space-y-6">

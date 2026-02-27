@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { earningsCalendar } from './data/mockData';
+import { earningsCalendar as mockEarnings } from './data/mockData';
 import Header from './components/Header';
 import KPICards from './components/KPICards';
 import EarningsTable from './components/EarningsTable';
@@ -8,15 +8,23 @@ import AIAnalysisPanel from './components/AIAnalysisPanel';
 import TodayPlays from './components/TodayPlays';
 import TradeTracker from './components/TradeTracker';
 import { subscribeTrades } from './services/tradeService';
-import { Crosshair, LayoutGrid, BookOpen } from 'lucide-react';
+import { Crosshair, LayoutGrid, BookOpen, RefreshCw } from 'lucide-react';
 import './index.css';
+
+const API_BASE = '/api';
 
 function App() {
   const [selectedStock, setSelectedStock] = useState(null);
-  const [dateFilter, setDateFilter] = useState('2026-02-28');
+  const [dateFilter, setDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
   const [showWeeklyOnly, setShowWeeklyOnly] = useState(true);
-  const [activeTab, setActiveTab] = useState('today'); // today, all, journal
+  const [activeTab, setActiveTab] = useState('today');
   const [addTradeStock, setAddTradeStock] = useState(null);
+
+  // Live earnings data from API
+  const [liveAMC, setLiveAMC] = useState([]);
+  const [liveBMO, setLiveBMO] = useState([]);
+  const [dataSource, setDataSource] = useState('mock');
+  const [loading, setLoading] = useState(true);
 
   // Load trades from Firestore (real-time)
   const [trades, setTrades] = useState([]);
@@ -26,16 +34,52 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  const filteredEarnings = useMemo(() => {
-    let data = earningsCalendar;
+  // Fetch live earnings data from API
+  const fetchLiveEarnings = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/plays/today`);
+      if (!res.ok) throw new Error('API unavailable');
+      const data = await res.json();
+
+      if (data.amcEarnings?.length > 0 || data.bmoEarnings?.length > 0) {
+        setLiveAMC(data.amcEarnings);
+        setLiveBMO(data.bmoEarnings);
+        setDataSource('live');
+      } else {
+        fallbackToMock();
+      }
+    } catch {
+      fallbackToMock();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fallbackToMock = () => {
+    const today = new Date().toISOString().split('T')[0];
+    // Only show mock earnings that are today or in the future
+    const upcoming = mockEarnings.filter(e => e.date >= today);
+    setLiveAMC(upcoming.filter(e => e.timing === 'AMC'));
+    setLiveBMO(upcoming.filter(e => e.timing === 'BMO'));
+    setDataSource('mock');
+  };
+
+  useEffect(() => {
+    fetchLiveEarnings();
+  }, []);
+
+  // Combined earnings for KPI cards and All Earnings tab
+  const allEarnings = useMemo(() => {
+    let data = [...liveAMC, ...liveBMO];
     if (showWeeklyOnly) {
       data = data.filter(e => e.hasWeeklyOptions);
     }
     return data;
-  }, [dateFilter, showWeeklyOnly]);
+  }, [liveAMC, liveBMO, showWeeklyOnly]);
 
-  const bmoStocks = filteredEarnings.filter(e => e.timing === 'BMO');
-  const amcStocks = filteredEarnings.filter(e => e.timing === 'AMC');
+  const bmoStocks = allEarnings.filter(e => e.timing === 'BMO');
+  const amcStocks = allEarnings.filter(e => e.timing === 'AMC');
 
   const openTradesCount = trades.filter(t => t.status === 'open').length;
 
@@ -52,11 +96,11 @@ function App() {
         setDateFilter={setDateFilter}
         showWeeklyOnly={showWeeklyOnly}
         setShowWeeklyOnly={setShowWeeklyOnly}
-        totalStocks={filteredEarnings.length}
+        totalStocks={allEarnings.length}
       />
 
       <main className="max-w-[1800px] mx-auto px-4 pb-8">
-        <KPICards earnings={filteredEarnings} />
+        <KPICards earnings={allEarnings} />
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-2 mt-6 mb-4 border-b border-glass-border pb-3">
@@ -74,13 +118,33 @@ function App() {
               {tab.label}
             </button>
           ))}
+
+          {/* Data source indicator + refresh */}
+          <div className="ml-auto flex items-center gap-2">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+              dataSource === 'live'
+                ? 'bg-neon-green/15 text-neon-green border-neon-green/30'
+                : 'bg-neon-orange/15 text-neon-orange border-neon-orange/30'
+            }`}>
+              {dataSource === 'live' ? 'LIVE' : 'MOCK DATA'}
+            </span>
+            <button
+              onClick={fetchLiveEarnings}
+              disabled={loading}
+              className="p-1.5 rounded-lg hover:bg-dark-700 text-gray-400 hover:text-white transition-all disabled:opacity-50"
+              title="Refresh earnings data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Today's Plays Tab */}
         {activeTab === 'today' && (
           <>
             <TodayPlays
-              earnings={filteredEarnings}
+              amcEarnings={amcStocks}
+              bmoEarnings={bmoStocks}
               onSelectStock={setSelectedStock}
               onAddTrade={setAddTradeStock}
             />
