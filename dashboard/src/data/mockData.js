@@ -2,15 +2,15 @@
 // Structure mirrors what we'll get from EarningsWhispers + Schwab API
 
 export const earningsCalendar = [
-  // PRE-MARKET (Before Market Open - BMO)
+  // ALREADY REPORTED — Wed Feb 25 AMC
   {
     id: 1,
     company: 'NVIDIA Corporation',
     ticker: 'NVDA',
     price: 875.50,
     marketCap: '2.16T',
-    timing: 'BMO',
-    date: '2026-02-28',
+    timing: 'AMC',
+    date: '2026-02-25',
     hasWeeklyOptions: true,
     sector: 'Technology',
     impliedMove: 8.5,
@@ -53,8 +53,8 @@ export const earningsCalendar = [
     ticker: 'CRM',
     price: 342.20,
     marketCap: '330B',
-    timing: 'BMO',
-    date: '2026-02-28',
+    timing: 'AMC',
+    date: '2026-02-26',
     hasWeeklyOptions: true,
     sector: 'Technology',
     impliedMove: 7.2,
