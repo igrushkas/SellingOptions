@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Check, Trash2, TrendingUp, TrendingDown, DollarSign, Target, Award, Calendar } from 'lucide-react';
 import { formatCurrency } from '../utils/calculations';
+import { addTrade, updateTrade, deleteTrade } from '../services/tradeService';
 
 function AddTradeModal({ stock, onSave, onClose }) {
   const [tradeType, setTradeType] = useState('call');
@@ -239,24 +240,24 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
   const [closingTrade, setClosingTrade] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
 
-  const handleSaveTrade = (trade) => {
-    const updated = [...trades, trade];
-    setTrades(updated);
-    localStorage.setItem('vc_trades', JSON.stringify(updated));
+  const handleSaveTrade = async (trade) => {
+    await addTrade(trade);
     setAddTradeStock(null);
   };
 
-  const handleCloseTrade = (updatedTrade) => {
-    const updated = trades.map(t => t.id === updatedTrade.id ? updatedTrade : t);
-    setTrades(updated);
-    localStorage.setItem('vc_trades', JSON.stringify(updated));
+  const handleCloseTrade = async (updatedTrade) => {
+    const { id, ...fields } = updatedTrade;
+    await updateTrade(id, {
+      status: fields.status,
+      closedPrice: fields.closedPrice,
+      closedDate: fields.closedDate,
+      pnl: fields.pnl,
+    });
     setClosingTrade(null);
   };
 
-  const handleDeleteTrade = (id) => {
-    const updated = trades.filter(t => t.id !== id);
-    setTrades(updated);
-    localStorage.setItem('vc_trades', JSON.stringify(updated));
+  const handleDeleteTrade = async (id) => {
+    await deleteTrade(id);
   };
 
   // Stats

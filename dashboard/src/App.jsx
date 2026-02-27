@@ -7,6 +7,7 @@ import StockDetail from './components/StockDetail';
 import AIAnalysisPanel from './components/AIAnalysisPanel';
 import TodayPlays from './components/TodayPlays';
 import TradeTracker from './components/TradeTracker';
+import { subscribeTrades } from './services/tradeService';
 import { Crosshair, LayoutGrid, BookOpen } from 'lucide-react';
 import './index.css';
 
@@ -17,15 +18,13 @@ function App() {
   const [activeTab, setActiveTab] = useState('today'); // today, all, journal
   const [addTradeStock, setAddTradeStock] = useState(null);
 
-  // Load trades from localStorage
-  const [trades, setTrades] = useState(() => {
-    try {
-      const saved = localStorage.getItem('vc_trades');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Load trades from Firestore (real-time)
+  const [trades, setTrades] = useState([]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeTrades(setTrades);
+    return () => unsubscribe();
+  }, []);
 
   const filteredEarnings = useMemo(() => {
     let data = earningsCalendar;
