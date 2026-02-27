@@ -1,0 +1,46 @@
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'dashboard/**'
+      - 'firebase.json'
+      - '.github/workflows/firebase-deploy.yml'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Create .env with API keys
+        working-directory: dashboard
+        run: |
+          cat <<EOF > .env
+          VITE_FINNHUB_API_KEY=${{ secrets.VITE_FINNHUB_API_KEY }}
+          VITE_FMP_API_KEY=${{ secrets.VITE_FMP_API_KEY }}
+          EOF
+
+      - name: Build
+        working-directory: dashboard
+        run: npx vite build
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: sellingoptions-a8da4
