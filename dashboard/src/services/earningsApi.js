@@ -9,6 +9,8 @@
  * Rate-limits enrichment to stay under Finnhub's 60 calls/min.
  */
 
+import { fetchImpliedMove } from './tradierApi.js';
+
 const FINNHUB_BASE = 'https://finnhub.io/api/v1';
 const FMP_BASE = 'https://financialmodelingprep.com/api/v3';
 
@@ -186,17 +188,29 @@ async function enrichSingle(entry, timing, keys) {
     keys.finnhub ? fetchSurprises(ticker, keys.finnhub) : Promise.resolve([]),
   ]);
 
+  const price = profile?.price || 0;
+
+  // Fetch implied move from Tradier options chain (if token available)
+  let impliedMove = 0;
+  let optionsData = null;
+  if (price > 0) {
+    optionsData = await fetchImpliedMove(ticker, price);
+    if (optionsData) {
+      impliedMove = optionsData.impliedMove;
+    }
+  }
+
   return {
     id: ticker,
     ticker,
     company: profile?.name || ticker,
-    price: profile?.price || 0,
+    price,
     marketCap: profile?.marketCap || '',
     sector: profile?.sector || '',
     date: entry.date,
     timing,
-    hasWeeklyOptions: true,
-    impliedMove: 0,
+    hasWeeklyOptions: !!optionsData, // If Tradier returns data, options exist
+    impliedMove,
     historicalMoves,
     // Finnhub calendar fields
     epsEstimate: entry.epsEstimate ?? null,
@@ -234,7 +248,7 @@ async function fetchProfile(ticker, apiKey) {
 
 async function fetchSurprises(ticker, apiKey) {
   try {
-    const res = await fetch(`${FINNHUB_BASE}/stock/earnings?symbol=${ticker}&limit=20&token=${apiKey}`);
+    const res = await fetch(`${FINNHUB_BASE}/stock/earnings?symbol=${ticker}&limit=40&token=${apiKey}`);
     if (!res.ok) return [];
     const data = await res.json();
     if (!Array.isArray(data)) return [];

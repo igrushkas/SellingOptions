@@ -45,8 +45,8 @@ export async function fetchEarningsCalendar(apiKey, fromDate, toDate) {
  * Returns last N quarters of actual EPS vs estimate, which we convert to historicalMoves.
  * Finnhub /stock/earnings returns: [{ actual, estimate, period, quarter, surprise, surprisePercent, symbol, year }]
  */
-export async function fetchEarningsSurprises(apiKey, ticker) {
-  const url = `${BASE}/stock/earnings?symbol=${ticker}&limit=20&token=${apiKey}`;
+export async function fetchEarningsSurprises(apiKey, ticker, limit = 40) {
+  const url = `${BASE}/stock/earnings?symbol=${ticker}&limit=${limit}&token=${apiKey}`;
 
   try {
     const data = await fetchJSON(url);
