@@ -1,67 +1,95 @@
 /**
- * EarningsWhispers.com scraper + Yahoo Finance enrichment
+ * Earnings Data Orchestrator
  *
- * Auto-fetches daily earnings calendar with:
- * - Tickers & company names
- * - BMO/AMC timing
- * - EPS estimates
- * - Stock prices (from Yahoo Finance)
+ * Flow: Finnhub (primary) → FMP (fallback) → Error (no mock)
  *
- * Caches results for 1 hour to avoid rate limits.
+ * After fetching the calendar, enriches each ticker with:
+ * - Yahoo Finance → stock price, company name
+ * - Finnhub earnings surprises → historicalMoves (last 20 quarters)
+ *
+ * Caches enriched results for 1 hour.
  */
 
 import https from 'https';
-import { load } from 'cheerio';
+import { fetchEarningsCalendar as finnhubCalendar, fetchEarningsSurprises } from './finnhub.js';
+import { fetchEarningsCalendar as fmpCalendar } from './fmp.js';
 
-// In-memory cache: { [dateKey]: { data, fetchedAt } }
+// In-memory cache: { [key]: { data, fetchedAt } }
 const cache = {};
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+function getKeys() {
+  return {
+    finnhub: process.env.FINNHUB_API_KEY || '',
+    fmp: process.env.FMP_API_KEY || '',
+  };
+}
+
 /**
- * Get earnings for a specific date + timing (AMC or BMO).
- * dateStr: 'YYYY-MM-DD'
- * timing: 'AMC' | 'BMO' | null (both)
+ * Fetch earnings for a date range + timing filter.
+ * Tries Finnhub first, then FMP.
  */
 export async function scrapeEarningsCalendar(dateStr, timing) {
-  const dateCompact = dateStr.replace(/-/g, '');
-  const suffix = timing === 'BMO' ? '/1' : timing === 'AMC' ? '' : '';
-  const cacheKey = `${dateCompact}${suffix}`;
+  const cacheKey = `cal:${dateStr}:${timing || 'all'}`;
 
-  // Check cache
   if (cache[cacheKey] && Date.now() - cache[cacheKey].fetchedAt < CACHE_TTL) {
     return cache[cacheKey].data;
   }
 
-  try {
-    // EarningsWhispers: /calendar/YYYYMMDD for AMC, /calendar/YYYYMMDD/1 for BMO
-    const url = `https://www.earningswhispers.com/calendar/${dateCompact}${suffix}`;
-    console.log(`Fetching earnings: ${url}`);
-    const html = await fetchPage(url);
-    const tickers = parseEarningsPage(html);
+  const keys = getKeys();
+  let rawEarnings = [];
+  let source = 'none';
 
-    if (tickers.length === 0) {
-      const result = { date: dateStr, timing, source: 'earningswhispers', earnings: [] };
-      cache[cacheKey] = { data: result, fetchedAt: Date.now() };
-      return result;
+  // Try Finnhub first
+  if (keys.finnhub) {
+    try {
+      rawEarnings = await finnhubCalendar(keys.finnhub, dateStr, dateStr);
+      source = 'finnhub';
+      console.log(`[Orchestrator] Finnhub returned ${rawEarnings.length} earnings for ${dateStr}`);
+    } catch (err) {
+      console.warn(`[Orchestrator] Finnhub failed: ${err.message}`);
     }
-
-    // Enrich with stock prices + company info from Yahoo Finance
-    const enriched = await enrichTickers(tickers, dateStr, timing);
-
-    const result = {
-      date: dateStr,
-      timing: timing || 'all',
-      source: 'earningswhispers',
-      count: enriched.length,
-      earnings: enriched,
-    };
-
-    cache[cacheKey] = { data: result, fetchedAt: Date.now() };
-    return result;
-  } catch (error) {
-    console.warn('Scraping failed:', error.message);
-    return { date: dateStr, timing, source: 'error', error: error.message, earnings: [] };
   }
+
+  // Fallback to FMP
+  if (rawEarnings.length === 0 && keys.fmp) {
+    try {
+      rawEarnings = await fmpCalendar(keys.fmp, dateStr, dateStr);
+      source = 'fmp';
+      console.log(`[Orchestrator] FMP returned ${rawEarnings.length} earnings for ${dateStr}`);
+    } catch (err) {
+      console.warn(`[Orchestrator] FMP failed: ${err.message}`);
+    }
+  }
+
+  if (rawEarnings.length === 0 && !keys.finnhub && !keys.fmp) {
+    return {
+      date: dateStr,
+      timing,
+      source: 'error',
+      error: 'No API keys configured. Set FINNHUB_API_KEY and/or FMP_API_KEY in .env',
+      earnings: [],
+    };
+  }
+
+  // Filter by timing if specified
+  if (timing) {
+    rawEarnings = rawEarnings.filter(e => e.timing === timing);
+  }
+
+  // Enrich all tickers in parallel (price, company, historical moves)
+  const enriched = await enrichAll(rawEarnings, keys);
+
+  const result = {
+    date: dateStr,
+    timing: timing || 'all',
+    source,
+    count: enriched.length,
+    earnings: enriched,
+  };
+
+  cache[cacheKey] = { data: result, fetchedAt: Date.now() };
+  return result;
 }
 
 /**
@@ -69,9 +97,11 @@ export async function scrapeEarningsCalendar(dateStr, timing) {
  */
 export async function getTodaysPlays() {
   const today = new Date();
-  const todayStr = formatDate(today);
+  const todayStr = fmt(today);
   const nextDay = getNextTradingDay(today);
-  const nextDayStr = formatDate(nextDay);
+  const nextDayStr = fmt(nextDay);
+
+  console.log(`[Orchestrator] Today=${todayStr}, NextTradingDay=${nextDayStr}`);
 
   const [amcResult, bmoResult] = await Promise.all([
     scrapeEarningsCalendar(todayStr, 'AMC'),
@@ -87,159 +117,120 @@ export async function getTodaysPlays() {
   };
 }
 
-// ── Helpers ──
+// ── Enrichment ──
 
-function formatDate(d) {
-  return d.toISOString().split('T')[0];
-}
+async function enrichAll(rawEarnings, keys) {
+  // Process in batches of 10 to respect rate limits
+  const batchSize = 10;
+  const results = [];
 
-function getNextTradingDay(date) {
-  const next = new Date(date);
-  const day = next.getDay(); // 0=Sun, 5=Fri, 6=Sat
-  if (day === 5) next.setDate(next.getDate() + 3); // Fri → Mon
-  else if (day === 6) next.setDate(next.getDate() + 2); // Sat → Mon
-  else next.setDate(next.getDate() + 1);
-  return next;
-}
-
-function fetchPage(url) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      timeout: 15000,
-    }, (res) => {
-      // Follow redirects
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchPage(res.headers.location).then(resolve).catch(reject);
-      }
-      if (res.statusCode !== 200) {
-        return reject(new Error(`HTTP ${res.statusCode}`));
-      }
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => resolve(data));
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-  });
-}
-
-function parseEarningsPage(html) {
-  const $ = load(html);
-  const tickers = [];
-
-  // EarningsWhispers uses various selectors for ticker symbols
-  // Try multiple patterns to find them
-  $('[class*="ticker"], [class*="Ticker"], a[href*="/stocks/"]').each((_, el) => {
-    const text = $(el).text().trim();
-    if (/^[A-Z]{1,5}$/.test(text) && !tickers.includes(text)) {
-      tickers.push(text);
-    }
-  });
-
-  // Also try data attributes and other patterns
-  if (tickers.length === 0) {
-    $('a').each((_, el) => {
-      const href = $(el).attr('href') || '';
-      const text = $(el).text().trim();
-      if (href.includes('/stocks/') && /^[A-Z]{1,5}$/.test(text) && !tickers.includes(text)) {
-        tickers.push(text);
-      }
-    });
-  }
-
-  // Fallback: scan for standalone uppercase tickers in the page body
-  if (tickers.length === 0) {
-    const bodyText = $('body').text();
-    const matches = bodyText.match(/\b[A-Z]{2,5}\b/g) || [];
-    const commonWords = new Set(['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'GET', 'HAS', 'HIM', 'HIS', 'HOW', 'ITS', 'LET', 'MAY', 'NEW', 'NOW', 'OLD', 'SEE', 'WAY', 'WHO', 'BOY', 'DID', 'EST', 'EPS', 'AMC', 'BMO', 'EST', 'USD', 'API', 'ETF', 'IPO', 'CEO', 'CFO']);
-    for (const m of matches) {
-      if (!commonWords.has(m) && !tickers.includes(m)) {
-        tickers.push(m);
+  for (let i = 0; i < rawEarnings.length; i += batchSize) {
+    const batch = rawEarnings.slice(i, i + batchSize);
+    const enriched = await Promise.allSettled(
+      batch.map(e => enrichTicker(e, keys))
+    );
+    for (const r of enriched) {
+      if (r.status === 'fulfilled' && r.value) {
+        results.push(r.value);
       }
     }
   }
 
-  return tickers;
+  return results;
 }
 
-/**
- * Enrich ticker list with price + company info from Yahoo Finance.
- */
-async function enrichTickers(tickers, date, timing) {
-  const results = await Promise.allSettled(
-    tickers.map(ticker => enrichSingleTicker(ticker, date, timing))
-  );
+async function enrichTicker(entry, keys) {
+  const { ticker, date, timing, epsEstimate, epsPrior, revenueEstimate } = entry;
 
-  return results
-    .filter(r => r.status === 'fulfilled' && r.value)
-    .map(r => r.value);
-}
+  // Fetch in parallel: Yahoo Finance price + Finnhub historical earnings
+  const [yahooData, historicalMoves] = await Promise.all([
+    fetchYahooQuote(ticker),
+    keys.finnhub ? fetchEarningsSurprises(keys.finnhub, ticker) : Promise.resolve([]),
+  ]);
 
-async function enrichSingleTicker(ticker, date, timing) {
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
-    const json = await fetchJSON(url);
-    const meta = json?.chart?.result?.[0]?.meta;
-
-    if (!meta) return buildBasicEntry(ticker, date, timing);
-
-    return {
-      id: ticker,
-      ticker,
-      company: meta.longName || meta.shortName || ticker,
-      price: meta.regularMarketPrice || meta.previousClose || 0,
-      marketCap: '',
-      timing: timing || 'AMC',
-      date,
-      hasWeeklyOptions: true,
-      sector: '',
-      impliedMove: 0, // needs options data to compute
-      historicalMoves: [],
-      epsEstimate: null,
-      epsPrior: null,
-      revenueEstimate: null,
-      consensusRating: '',
-      analystCount: 0,
-      news: [],
-    };
-  } catch {
-    return buildBasicEntry(ticker, date, timing);
-  }
-}
-
-function buildBasicEntry(ticker, date, timing) {
   return {
     id: ticker,
     ticker,
-    company: ticker,
-    price: 0,
-    marketCap: '',
-    timing: timing || 'AMC',
-    date,
-    hasWeeklyOptions: true,
+    company: yahooData.name || ticker,
+    price: yahooData.price || 0,
+    marketCap: yahooData.marketCap || '',
     sector: '',
-    impliedMove: 0,
-    historicalMoves: [],
-    epsEstimate: null,
-    epsPrior: null,
-    revenueEstimate: null,
+    date,
+    timing,
+    hasWeeklyOptions: true,
+    impliedMove: 0, // requires options chain data
+    historicalMoves,
+    epsEstimate: epsEstimate || null,
+    epsPrior: epsPrior || null,
+    revenueEstimate: revenueEstimate ? formatRevenue(revenueEstimate) : null,
     consensusRating: '',
     analystCount: 0,
     news: [],
   };
 }
 
+// ── Yahoo Finance ──
+
+async function fetchYahooQuote(ticker) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+    const json = await fetchJSON(url);
+    const meta = json?.chart?.result?.[0]?.meta;
+    if (!meta) return { name: ticker, price: 0, marketCap: '' };
+
+    return {
+      name: meta.longName || meta.shortName || ticker,
+      price: meta.regularMarketPrice || meta.previousClose || 0,
+      marketCap: formatMarketCap(meta.marketCap || 0),
+    };
+  } catch {
+    return { name: ticker, price: 0, marketCap: '' };
+  }
+}
+
+// ── Formatters ──
+
+function formatMarketCap(mc) {
+  if (!mc || mc === 0) return '';
+  if (mc >= 1e12) return `${(mc / 1e12).toFixed(2)}T`;
+  if (mc >= 1e9) return `${(mc / 1e9).toFixed(1)}B`;
+  if (mc >= 1e6) return `${(mc / 1e6).toFixed(0)}M`;
+  return `${mc}`;
+}
+
+function formatRevenue(rev) {
+  if (typeof rev === 'string') return rev;
+  if (!rev || rev === 0) return null;
+  if (rev >= 1e9) return `${(rev / 1e9).toFixed(1)}B`;
+  if (rev >= 1e6) return `${(rev / 1e6).toFixed(0)}M`;
+  return `${rev}`;
+}
+
+function fmt(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function getNextTradingDay(date) {
+  const next = new Date(date);
+  const day = next.getDay();
+  if (day === 5) next.setDate(next.getDate() + 3);      // Fri → Mon
+  else if (day === 6) next.setDate(next.getDate() + 2);  // Sat → Mon
+  else next.setDate(next.getDate() + 1);
+  return next;
+}
+
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': 'application/json',
+      },
       timeout: 10000,
     }, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP ${res.statusCode}`));
+      }
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {

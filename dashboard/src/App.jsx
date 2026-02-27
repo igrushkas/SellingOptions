@@ -1,5 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
-import { earningsCalendar as mockEarnings } from './data/mockData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import KPICards from './components/KPICards';
 import EarningsTable from './components/EarningsTable';
@@ -8,7 +7,7 @@ import AIAnalysisPanel from './components/AIAnalysisPanel';
 import TodayPlays from './components/TodayPlays';
 import TradeTracker from './components/TradeTracker';
 import { subscribeTrades } from './services/tradeService';
-import { Crosshair, LayoutGrid, BookOpen, RefreshCw } from 'lucide-react';
+import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff } from 'lucide-react';
 import './index.css';
 
 const API_BASE = '/api';
@@ -20,11 +19,12 @@ function App() {
   const [activeTab, setActiveTab] = useState('today');
   const [addTradeStock, setAddTradeStock] = useState(null);
 
-  // Live earnings data from API
+  // Live earnings data from API — NO mock fallback
   const [liveAMC, setLiveAMC] = useState([]);
   const [liveBMO, setLiveBMO] = useState([]);
-  const [dataSource, setDataSource] = useState('mock');
+  const [dataSource, setDataSource] = useState('loading'); // 'loading' | 'finnhub' | 'fmp' | 'offline'
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Load trades from Firestore (real-time)
   const [trades, setTrades] = useState([]);
@@ -34,40 +34,34 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch live earnings data from API
-  const fetchLiveEarnings = async () => {
+  // Fetch live earnings from backend API
+  const fetchLiveEarnings = useCallback(async () => {
     setLoading(true);
+    setErrorMsg('');
     try {
       const res = await fetch(`${API_BASE}/plays/today`);
-      if (!res.ok) throw new Error('API unavailable');
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
 
-      if (data.amcEarnings?.length > 0 || data.bmoEarnings?.length > 0) {
-        setLiveAMC(data.amcEarnings);
-        setLiveBMO(data.bmoEarnings);
-        setDataSource('live');
-      } else {
-        fallbackToMock();
-      }
-    } catch {
-      fallbackToMock();
+      setLiveAMC(data.amcEarnings || []);
+      setLiveBMO(data.bmoEarnings || []);
+
+      // Determine source from the API response
+      const src = data.sources?.amc || data.sources?.bmo || 'live';
+      setDataSource(src === 'error' ? 'offline' : src);
+    } catch (err) {
+      setLiveAMC([]);
+      setLiveBMO([]);
+      setDataSource('offline');
+      setErrorMsg('Backend server not running. Start it with: npm run dev:full');
     } finally {
       setLoading(false);
     }
-  };
-
-  const fallbackToMock = () => {
-    const today = new Date().toISOString().split('T')[0];
-    // Only show mock earnings that are today or in the future
-    const upcoming = mockEarnings.filter(e => e.date >= today);
-    setLiveAMC(upcoming.filter(e => e.timing === 'AMC'));
-    setLiveBMO(upcoming.filter(e => e.timing === 'BMO'));
-    setDataSource('mock');
-  };
+  }, []);
 
   useEffect(() => {
     fetchLiveEarnings();
-  }, []);
+  }, [fetchLiveEarnings]);
 
   // Combined earnings for KPI cards and All Earnings tab
   const allEarnings = useMemo(() => {
@@ -88,6 +82,14 @@ function App() {
     { key: 'all', label: 'All Earnings', icon: LayoutGrid },
     { key: 'journal', label: `Trade Journal${openTradesCount ? ` (${openTradesCount})` : ''}`, icon: BookOpen },
   ];
+
+  const sourceBadge = {
+    finnhub: { label: 'FINNHUB', cls: 'bg-neon-green/15 text-neon-green border-neon-green/30' },
+    fmp: { label: 'FMP', cls: 'bg-neon-blue/15 text-neon-blue border-neon-blue/30' },
+    offline: { label: 'OFFLINE', cls: 'bg-neon-red/15 text-neon-red border-neon-red/30' },
+    loading: { label: 'LOADING', cls: 'bg-neon-orange/15 text-neon-orange border-neon-orange/30' },
+  };
+  const badge = sourceBadge[dataSource] || sourceBadge.finnhub;
 
   return (
     <div className="min-h-screen bg-dark-900">
@@ -121,12 +123,8 @@ function App() {
 
           {/* Data source indicator + refresh */}
           <div className="ml-auto flex items-center gap-2">
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
-              dataSource === 'live'
-                ? 'bg-neon-green/15 text-neon-green border-neon-green/30'
-                : 'bg-neon-orange/15 text-neon-orange border-neon-orange/30'
-            }`}>
-              {dataSource === 'live' ? 'LIVE' : 'MOCK DATA'}
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${badge.cls}`}>
+              {badge.label}
             </span>
             <button
               onClick={fetchLiveEarnings}
@@ -138,6 +136,17 @@ function App() {
             </button>
           </div>
         </div>
+
+        {/* Offline banner */}
+        {dataSource === 'offline' && (
+          <div className="mb-4 p-3 rounded-lg bg-neon-red/10 border border-neon-red/20 flex items-center gap-3">
+            <WifiOff className="w-5 h-5 text-neon-red shrink-0" />
+            <div className="text-sm">
+              <span className="text-neon-red font-semibold">No live data.</span>
+              <span className="text-gray-400 ml-2">{errorMsg || 'API keys may be missing or server is down.'}</span>
+            </div>
+          </div>
+        )}
 
         {/* Today's Plays Tab */}
         {activeTab === 'today' && (
