@@ -227,18 +227,21 @@ async function enrichSingle(entry, timing, keys) {
   ]);
 
   // Try to get ACTUAL stock price moves from Yahoo Finance (free, no key)
-  // This is much better than Finnhub EPS surprises for the strategy engine
+  // Uses Finnhub earnings dates + Yahoo chart prices (no auth needed from browser)
   let historicalMoves = finnhubMoves;
   let historySource = finnhubMoves.length > 0 ? 'finnhub' : 'none';
 
-  try {
-    const yahooMoves = await fetchYahooEarningsMoves(ticker);
-    if (yahooMoves && yahooMoves.length > finnhubMoves.length) {
-      historicalMoves = yahooMoves;
-      historySource = 'yahoo';
+  if (finnhubMoves.length > 0) {
+    try {
+      const earningsDates = finnhubMoves.map(m => m.date).filter(Boolean);
+      const yahooMoves = await fetchYahooPriceMoves(ticker, earningsDates);
+      if (yahooMoves && yahooMoves.length > 0) {
+        historicalMoves = yahooMoves;
+        historySource = 'yahoo';
+      }
+    } catch {
+      // Yahoo chart failed, use Finnhub EPS surprises as fallback
     }
-  } catch {
-    // Yahoo failed, use Finnhub EPS surprises as fallback
   }
 
   const rawCap = profile?.marketCapRaw || 0;
@@ -313,19 +316,18 @@ async function fetchSurprises(ticker, apiKey) {
 }
 
 /**
- * Fetch ACTUAL stock price moves on earnings from Yahoo Finance.
- * Uses chart endpoint to get price history, then calculates close-to-close moves
- * around earnings dates obtained from Finnhub's earnings data we already have.
+ * Fetch ACTUAL stock price moves around known earnings dates.
+ * Takes earnings dates from Finnhub + gets price data from Yahoo chart endpoint.
+ * Yahoo chart (v8) works from the browser without auth (unlike v10 quoteSummary).
  *
- * This gives actual stock moves (e.g., "dropped 3%") instead of EPS surprises.
- * Works client-side via CORS-friendly Yahoo chart endpoint.
+ * This converts EPS surprise dates into actual stock price moves.
  */
-const yahooEarningsCache = {};
-async function fetchYahooEarningsMoves(ticker) {
-  if (yahooEarningsCache[ticker]) return yahooEarningsCache[ticker];
+const yahooPriceCache = {};
+async function fetchYahooPriceMoves(ticker, earningsDates) {
+  if (yahooPriceCache[ticker]) return yahooPriceCache[ticker];
+  if (!earningsDates || earningsDates.length === 0) return [];
 
   try {
-    // Get 5 years of daily prices
     const chartRes = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y`
     );
@@ -346,28 +348,12 @@ async function fetchYahooEarningsMoves(ticker) {
       prices.push({ date: dateStr, open: opens[i], close: closes[i] });
     }
 
-    // Get earnings dates from Yahoo earningsHistory
-    const summaryRes = await fetch(
-      `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=earningsHistory`
-    );
-    if (!summaryRes.ok) return [];
-    const summaryData = await summaryRes.json();
-    const history = summaryData?.quoteSummary?.result?.[0]?.earningsHistory?.history;
-    if (!history || history.length === 0) return [];
-
-    const earningsDates = history
-      .filter(e => e.quarter?.fmt)
-      .map(e => e.quarter.fmt);
-
-    // Build date index
     const dateIdx = {};
     prices.forEach((p, i) => { dateIdx[p.date] = i; });
 
-    // Calculate moves
     const moves = [];
     for (const earningsDate of earningsDates) {
       let idx = dateIdx[earningsDate];
-      // Try nearby dates if exact match not found
       if (idx == null) {
         const d = new Date(earningsDate + 'T12:00:00');
         for (let off = 1; off <= 3; off++) {
@@ -401,7 +387,7 @@ async function fetchYahooEarningsMoves(ticker) {
     }
 
     moves.sort((a, b) => b.date.localeCompare(a.date));
-    yahooEarningsCache[ticker] = moves;
+    yahooPriceCache[ticker] = moves;
     return moves;
   } catch {
     return [];
