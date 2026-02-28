@@ -71,6 +71,8 @@ function App() {
       setDataSource(src === 'none' ? 'offline' : src);
       if (src === 'none') {
         setErrorMsg('No API keys found. Add VITE_FINNHUB_API_KEY to .env and rebuild.');
+      } else if (data.amcEarnings.length === 0 && data.bmoEarnings.length === 0) {
+        setErrorMsg('No earnings scheduled for this period.');
       }
     } catch {
       setLiveAMC([]);

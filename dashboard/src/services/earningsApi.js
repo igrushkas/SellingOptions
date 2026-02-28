@@ -36,6 +36,22 @@ function getNextTradingDay(date) {
   return next;
 }
 
+function getLastFriday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  if (day === 6) d.setDate(d.getDate() - 1);      // Sat → Fri
+  else if (day === 0) d.setDate(d.getDate() - 2);  // Sun → Fri
+  return d;
+}
+
+function getCurrentTradingDay(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  if (day === 0) d.setDate(d.getDate() - 2);       // Sun → Fri
+  else if (day === 6) d.setDate(d.getDate() - 1);   // Sat → Fri
+  return d;
+}
+
 function getDayName(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('en-US', { weekday: 'long' });
@@ -51,25 +67,37 @@ function delay(ms) {
  */
 export async function fetchTodaysPlaysDirect() {
   const keys = getKeys();
-  const today = new Date();
-  const todayStr = fmt(today);
-  const nextTradingDay = getNextTradingDay(today);
-  const nextTradingDayStr = fmt(nextTradingDay);
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+  // AMC date: use current trading day (on weekends, look back to Friday)
+  const amcDate = getCurrentTradingDay(now);
+  const amcDateStr = fmt(amcDate);
+
+  // BMO date: next trading day (on Fri/Sat/Sun → Monday)
+  const bmoDate = getNextTradingDay(amcDate);
+  const bmoDateStr = fmt(bmoDate);
+
+  // Query range covers both AMC and BMO dates
+  const fromStr = amcDateStr;
+  const toStr = bmoDateStr;
 
   let allEarnings = [];
   let source = 'none';
 
-  // Fetch full range: today → next trading day (covers weekend on Friday)
   if (keys.finnhub) {
     try {
       const res = await fetch(
-        `${FINNHUB_BASE}/calendar/earnings?from=${todayStr}&to=${nextTradingDayStr}&token=${keys.finnhub}`
+        `${FINNHUB_BASE}/calendar/earnings?from=${fromStr}&to=${toStr}&token=${keys.finnhub}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data?.earningsCalendar?.length > 0) {
         allEarnings = data.earningsCalendar;
         source = 'finnhub';
+      } else {
+        source = 'finnhub'; // API worked, just no earnings in range
       }
     } catch (err) {
       console.warn('[EarningsAPI] Finnhub failed:', err.message);
@@ -77,14 +105,14 @@ export async function fetchTodaysPlaysDirect() {
   }
 
   // Fallback to FMP
-  if (allEarnings.length === 0 && keys.fmp) {
+  if (source === 'none' && keys.fmp) {
     try {
       const res = await fetch(
-        `${FMP_BASE}/earning_calendar?from=${todayStr}&to=${nextTradingDayStr}&apikey=${keys.fmp}`
+        `${FMP_BASE}/earning_calendar?from=${fromStr}&to=${toStr}&apikey=${keys.fmp}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         allEarnings = data.map(e => ({
           symbol: e.symbol,
           date: e.date,
@@ -100,35 +128,36 @@ export async function fetchTodaysPlaysDirect() {
     }
   }
 
+  const amcDayName = getDayName(amcDateStr);
+  const bmoDayName = getDayName(bmoDateStr);
+
   if (allEarnings.length === 0) {
     return {
       amcEarnings: [], bmoEarnings: [],
       sources: { amc: source, bmo: source },
-      today: todayStr, nextTradingDay: nextTradingDayStr,
-      amcLabel: `Tonight (AMC)`,
-      bmoLabel: `${getDayName(nextTradingDayStr)} Morning (BMO)`,
+      today: amcDateStr, nextTradingDay: bmoDateStr,
+      amcLabel: `${amcDayName} Evening (AMC)`,
+      bmoLabel: `${bmoDayName} Morning (BMO)`,
     };
   }
 
-  // AMC: today's after-close earnings (+ any weekend dates)
+  // AMC: earnings on the AMC date with after-close timing
   const amcRaw = allEarnings.filter(e => {
-    const timing = mapTiming(e.hour);
-    // Include today's AMC and any weekend AMC
-    return timing === 'AMC' && e.date >= todayStr && e.date < nextTradingDayStr;
+    return e.date === amcDateStr && mapTiming(e.hour) === 'AMC';
   });
 
-  // BMO: next trading day's before-open earnings
+  // BMO: earnings on the BMO date with before-open timing
   const bmoRaw = allEarnings.filter(e => {
-    return e.date === nextTradingDayStr && mapTiming(e.hour) === 'BMO';
+    return e.date === bmoDateStr && mapTiming(e.hour) === 'BMO';
   });
 
-  console.log(`[EarningsAPI] Found ${amcRaw.length} AMC (${todayStr}), ${bmoRaw.length} BMO (${nextTradingDayStr})`);
+  console.log(`[EarningsAPI] AMC: ${amcRaw.length} on ${amcDateStr} (${amcDayName}), BMO: ${bmoRaw.length} on ${bmoDateStr} (${bmoDayName})`);
 
-  // Enrich with profile + historical data (SEQUENTIAL to respect 60 calls/min)
+  // Enrich with profile + historical data (batched to respect 60 calls/min)
   const amcEnriched = await enrichBatchRateLimited(amcRaw, 'AMC', keys);
   const bmoEnriched = await enrichBatchRateLimited(bmoRaw, 'BMO', keys);
 
-  // Filter out penny stocks and micro-caps
+  // Filter out penny stocks
   const amcFiltered = amcEnriched.filter(e => e.price >= MIN_PRICE);
   const bmoFiltered = bmoEnriched.filter(e => e.price >= MIN_PRICE);
 
@@ -136,10 +165,10 @@ export async function fetchTodaysPlaysDirect() {
     amcEarnings: amcFiltered,
     bmoEarnings: bmoFiltered,
     sources: { amc: source, bmo: source },
-    today: todayStr,
-    nextTradingDay: nextTradingDayStr,
-    amcLabel: `${getDayName(todayStr)} Evening (AMC)`,
-    bmoLabel: `${getDayName(nextTradingDayStr)} Morning (BMO)`,
+    today: amcDateStr,
+    nextTradingDay: bmoDateStr,
+    amcLabel: `${amcDayName} Evening (AMC)`,
+    bmoLabel: `${bmoDayName} Morning (BMO)`,
   };
 }
 

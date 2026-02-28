@@ -92,31 +92,32 @@ export async function scrapeEarningsCalendar(fromDate, toDate, timing) {
  * On Friday: Fri AMC + Mon BMO (covers full weekend).
  */
 export async function getTodaysPlays() {
-  const today = new Date();
-  const todayStr = fmt(today);
-  const nextDay = getNextTradingDay(today);
-  const nextDayStr = fmt(nextDay);
+  const now = new Date();
+  const dayOfWeek = now.getDay();
 
-  console.log(`[Orchestrator] Today=${todayStr} (${getDayName(todayStr)}), Next=${nextDayStr} (${getDayName(nextDayStr)})`);
+  // AMC: current trading day (on weekends, look back to Friday)
+  const amcDate = getCurrentTradingDay(now);
+  const amcDateStr = fmt(amcDate);
 
-  // Fetch AMC: today through day before next trading day (covers weekend)
-  // Fetch BMO: next trading day only
+  // BMO: next trading day (Fri/Sat/Sun → Monday)
+  const bmoDate = getNextTradingDay(amcDate);
+  const bmoDateStr = fmt(bmoDate);
+
+  console.log(`[Orchestrator] AMC=${amcDateStr} (${getDayName(amcDateStr)}), BMO=${bmoDateStr} (${getDayName(bmoDateStr)})`);
+
   const [amcResult, bmoResult] = await Promise.all([
-    scrapeEarningsCalendar(todayStr, nextDayStr, 'AMC'),
-    scrapeEarningsCalendar(nextDayStr, nextDayStr, 'BMO'),
+    scrapeEarningsCalendar(amcDateStr, amcDateStr, 'AMC'),
+    scrapeEarningsCalendar(bmoDateStr, bmoDateStr, 'BMO'),
   ]);
 
-  // For AMC, only include stocks reporting today or over the weekend (not next trading day)
-  const amcEarnings = amcResult.earnings.filter(e => e.date < nextDayStr);
-
   return {
-    today: todayStr,
-    nextTradingDay: nextDayStr,
-    amcEarnings,
+    today: amcDateStr,
+    nextTradingDay: bmoDateStr,
+    amcEarnings: amcResult.earnings,
     bmoEarnings: bmoResult.earnings,
     sources: { amc: amcResult.source, bmo: bmoResult.source },
-    amcLabel: `${getDayName(todayStr)} Evening (AMC)`,
-    bmoLabel: `${getDayName(nextDayStr)} Morning (BMO)`,
+    amcLabel: `${getDayName(amcDateStr)} Evening (AMC)`,
+    bmoLabel: `${getDayName(bmoDateStr)} Morning (BMO)`,
   };
 }
 
@@ -240,6 +241,14 @@ function getNextTradingDay(date) {
   else if (day === 0) next.setDate(next.getDate() + 1);  // Sun → Mon
   else next.setDate(next.getDate() + 1);
   return next;
+}
+
+function getCurrentTradingDay(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  if (day === 0) d.setDate(d.getDate() - 2);       // Sun → Fri
+  else if (day === 6) d.setDate(d.getDate() - 1);   // Sat → Fri
+  return d;
 }
 
 function fetchJSON(url) {
