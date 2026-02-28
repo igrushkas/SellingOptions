@@ -18,7 +18,7 @@ import { fetchEarningsCalendar as finnhubCalendar, fetchEarningsSurprises } from
 import { fetchEarningsCalendar as fmpCalendar } from './fmp.js';
 import { fetchImpliedMove as yahooImpliedMove } from './yahooOptions.js';
 import { fetchEarningsData, fetchImpliedEarningsMove, buildHistoricalMoves, calcOratsIVCrushStats } from './orats.js';
-import { fetchImpliedMove as alphaVantageImpliedMove } from './alphaVantage.js';
+import { fetchImpliedMove as alphaVantageImpliedMove, fetchEarningsCalendar as avEarningsCalendar } from './alphaVantage.js';
 
 const cache = {};
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -186,7 +186,7 @@ async function enrichTicker(entry, keys) {
 
   const price = yahooData.price || 0;
 
-  // ── Historical Moves: ORATS (actual stock moves) > Finnhub (EPS surprises) ──
+  // ── Historical Moves: ORATS (actual stock moves) > Alpha Vantage > Finnhub ──
   let historicalMoves;
   let historySource = 'none';
 
@@ -196,9 +196,37 @@ async function enrichTicker(entry, keys) {
     console.log(`[Orchestrator] ${ticker}: ORATS historical moves (${historicalMoves.length} quarters)`);
   }
 
-  if (!historicalMoves || historicalMoves.length === 0) {
-    historicalMoves = finnhubSurprises || [];
-    historySource = historicalMoves.length > 0 ? 'finnhub' : 'none';
+  // Finnhub free tier only returns ~4 quarters; supplement with Alpha Vantage
+  if (!historicalMoves || historicalMoves.length < 8) {
+    const finnhubMoves = finnhubSurprises || [];
+
+    // Try Alpha Vantage earnings (returns many more quarters, 24h cached)
+    if (keys.alphaVantage) {
+      try {
+        const avEarnings = await avEarningsCalendar(ticker);
+        if (avEarnings && avEarnings.length > finnhubMoves.length) {
+          historicalMoves = avEarnings
+            .filter(e => e.epsSurprisePct != null)
+            .slice(0, 20)
+            .map(e => ({
+              quarter: formatQuarterFromDate(e.fiscalDate || e.date),
+              actual: Math.abs(e.epsSurprisePct),
+              direction: e.epsSurprisePct >= 0 ? 'up' : 'down',
+              date: e.date || '',
+            }));
+          historySource = 'alpha_vantage';
+          console.log(`[Orchestrator] ${ticker}: Alpha Vantage historical earnings (${historicalMoves.length} quarters)`);
+        }
+      } catch {
+        // Alpha Vantage failed, fall through to Finnhub
+      }
+    }
+
+    // Fall back to Finnhub if AV didn't produce more
+    if (!historicalMoves || historicalMoves.length < finnhubMoves.length) {
+      historicalMoves = finnhubMoves;
+      historySource = finnhubMoves.length > 0 ? 'finnhub' : 'none';
+    }
   }
 
   // ── Implied Move: ORATS > Alpha Vantage > Yahoo Finance ──
@@ -309,6 +337,15 @@ function formatRevenue(rev) {
   if (rev >= 1e9) return `${(rev / 1e9).toFixed(1)}B`;
   if (rev >= 1e6) return `${(rev / 1e6).toFixed(0)}M`;
   return `${rev}`;
+}
+
+function formatQuarterFromDate(dateStr) {
+  if (!dateStr) return 'Unknown';
+  const d = new Date(dateStr + 'T12:00:00');
+  const month = d.getMonth(); // 0-indexed
+  const year = d.getFullYear();
+  const quarter = Math.floor(month / 3) + 1;
+  return `Q${quarter} ${year}`;
 }
 
 function fmt(d) {

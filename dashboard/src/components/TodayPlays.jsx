@@ -89,13 +89,13 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
     <div className="space-y-8">
       {/* BMO Plays — morning first */}
       <div>
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-lg bg-neon-orange/10 border border-neon-orange/20">
           <Sun className="w-5 h-5 text-neon-orange" />
-          <h2 className="text-lg font-bold text-white">{bmoLabel || "Next Trading Day Morning (BMO)"}</h2>
-          <span className="text-xs text-gray-500">
+          <h2 className="text-lg font-bold text-neon-orange">{bmoLabel || "Next Trading Day Morning (BMO)"}</h2>
+          <span className="text-xs text-gray-400">
             — Sell options before close, IV crush at open
           </span>
-          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-orange/15 text-neon-orange border border-neon-orange/30 font-semibold">
+          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-orange/20 text-neon-orange border border-neon-orange/30 font-semibold">
             {tomorrowBMO.length} stocks
           </span>
         </div>
@@ -114,13 +114,13 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
 
       {/* AMC Plays — evening second */}
       <div>
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-lg bg-neon-purple/10 border border-neon-purple/20">
           <Moon className="w-5 h-5 text-neon-purple" />
-          <h2 className="text-lg font-bold text-white">{amcLabel || "Tonight's Earnings (AMC)"}</h2>
-          <span className="text-xs text-gray-500">
+          <h2 className="text-lg font-bold text-neon-purple">{amcLabel || "Tonight's Earnings (AMC)"}</h2>
+          <span className="text-xs text-gray-400">
             — Sell options NOW, close next trading morning
           </span>
-          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-purple/15 text-neon-purple border border-neon-purple/30 font-semibold">
+          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-purple/20 text-neon-purple border border-neon-purple/30 font-semibold">
             {tonightAMC.length} stocks
           </span>
         </div>
@@ -138,40 +138,42 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
       </div>
 
       {/* Daily Workflow Reminder */}
-      <div className="glass-card p-5 border-l-2 border-l-neon-blue">
-        <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-neon-blue" />
-          Daily Workflow
-        </h3>
+      <div className="mt-4">
+        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-lg bg-neon-blue/10 border border-neon-blue/20">
+          <Clock className="w-5 h-5 text-neon-blue" />
+          <h2 className="text-lg font-bold text-neon-blue">Daily Workflow</h2>
+        </div>
+        <div className="glass-card p-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
           <div className="flex items-start gap-2">
             <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">1</span>
+            <div>
+              <span className="text-white font-semibold">9:30-10 AM ET</span>
+              <p className="text-gray-400 mt-0.5">Check overnight results. Close positions within first 30 min for IV crush profit.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">2</span>
+            <div>
+              <span className="text-white font-semibold">10 AM ET</span>
+              <p className="text-gray-400 mt-0.5">Mark trades as won/lost. Review P&L. Rinse and repeat.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">3</span>
             <div>
               <span className="text-white font-semibold">2-3 PM ET</span>
               <p className="text-gray-400 mt-0.5">Review tonight's AMC + next day's BMO earnings. Pick best IV crush setups.</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
-            <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">2</span>
+            <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">4</span>
             <div>
               <span className="text-white font-semibold">3-3:45 PM ET</span>
               <p className="text-gray-400 mt-0.5">Sell naked calls above safe high, naked puts below safe low. Log trades here.</p>
             </div>
           </div>
-          <div className="flex items-start gap-2">
-            <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">3</span>
-            <div>
-              <span className="text-white font-semibold">9:30-10 AM ET (Next Day)</span>
-              <p className="text-gray-400 mt-0.5">Check results. Close positions within first 30 min for IV crush profit.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">4</span>
-            <div>
-              <span className="text-white font-semibold">10 AM ET</span>
-              <p className="text-gray-400 mt-0.5">Mark trades as won/lost. Review P&L. Rinse and repeat.</p>
-            </div>
-          </div>
+        </div>
         </div>
       </div>
     </div>
