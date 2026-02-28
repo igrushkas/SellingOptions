@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access to trades collection
+    // TODO: Add authentication rules when auth is implemented
+    match /trades/{tradeId} {
+      allow read, write: if true;
+    }
+  }
+}
