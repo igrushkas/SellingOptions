@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, TrendingUp, TrendingDown, Shield, Target, AlertCircle, Newspaper, Activity } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, Shield, Target, AlertCircle, Newspaper, Activity, ArrowDown, ArrowUp, Crosshair } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, AreaChart, Area } from 'recharts';
 import {
   calcSafeZone,
@@ -10,6 +10,7 @@ import {
   calcAvgMove,
   calcMaxMove,
   calcMedianMove,
+  getStrategyRecommendation,
 } from '../utils/calculations';
 
 function HistoricalMovesChart({ historicalMoves, impliedMove }) {
@@ -456,6 +457,131 @@ function TastytradeMetrics({ ticker }) {
   );
 }
 
+const riskColors = {
+  low: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', label: 'Low Risk' },
+  moderate: { bg: 'bg-neon-yellow/10', text: 'text-neon-yellow', border: 'border-neon-yellow/30', label: 'Moderate Risk' },
+  high: { bg: 'bg-neon-red/10', text: 'text-neon-red', border: 'border-neon-red/30', label: 'High Risk' },
+  extreme: { bg: 'bg-neon-red/10', text: 'text-neon-red', border: 'border-neon-red/30', label: 'Extreme Risk' },
+  unknown: { bg: 'bg-gray-700/50', text: 'text-gray-400', border: 'border-gray-600', label: 'Unknown' },
+};
+
+function StrategyPanel({ stock }) {
+  const rec = getStrategyRecommendation(stock);
+  const risk = riskColors[rec.riskLevel] || riskColors.unknown;
+  const isSkip = rec.strategy === 'skip';
+
+  return (
+    <div className={`glass-card p-5 border-l-4 ${isSkip ? 'border-l-gray-600' : 'border-l-neon-purple'}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+          <Crosshair className="w-4 h-4 text-neon-purple" />
+          Strategy Recommendation
+        </h4>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${risk.bg} ${risk.text} border ${risk.border}`}>
+            {risk.label}
+          </span>
+          {rec.confidence > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-neon-purple/10 text-neon-purple border border-neon-purple/30">
+              {rec.confidence}% confidence
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Strategy Name */}
+      <div className={`text-xl font-bold mb-3 ${isSkip ? 'text-gray-500' : 'text-white'}`}>
+        {rec.strategyName}
+      </div>
+
+      {/* Directional Bias Visual */}
+      {rec.downPct != null && !isSkip && (
+        <div className="mb-4">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-1.5">Directional Bias (Last 8 Quarters)</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-neon-red font-semibold flex items-center gap-1">
+              <ArrowDown className="w-3 h-3" />
+              {Math.round(rec.downPct * 100)}% down
+            </span>
+            <div className="flex-1 h-3 bg-dark-600 rounded-full overflow-hidden flex">
+              <div className="bg-neon-red/70 h-full transition-all" style={{ width: `${rec.downPct * 100}%` }} />
+              <div className="bg-neon-green/70 h-full transition-all" style={{ width: `${rec.upPct * 100}%` }} />
+            </div>
+            <span className="text-xs text-neon-green font-semibold flex items-center gap-1">
+              {Math.round(rec.upPct * 100)}% up
+              <ArrowUp className="w-3 h-3" />
+            </span>
+          </div>
+          {rec.avgDownMag > 0 && rec.avgUpMag > 0 && (
+            <div className="flex justify-between mt-1 text-[10px] text-gray-500">
+              <span>Avg down: -{rec.avgDownMag.toFixed(1)}%</span>
+              <span>Avg up: +{rec.avgUpMag.toFixed(1)}%</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Leg Details */}
+      {rec.legs.length > 0 && (
+        <div className="mb-4">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-2">Trade Legs</span>
+          <div className="grid gap-2">
+            {rec.legs.map((leg, i) => {
+              const isSell = leg.type.startsWith('Sell');
+              return (
+                <div key={i} className={`flex items-center justify-between p-2.5 rounded-lg ${
+                  isSell ? 'bg-neon-orange/10 border border-neon-orange/20' : 'bg-dark-700/50 border border-glass-border'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                      isSell ? 'bg-neon-orange/20 text-neon-orange' : 'bg-gray-700 text-gray-400'
+                    }`}>
+                      {isSell ? 'SELL' : 'BUY'}
+                    </span>
+                    <span className="text-xs text-white font-semibold">{leg.type.replace('Sell ', '').replace('Buy ', '')}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-white">{formatCurrency(leg.strike)}</span>
+                    <span className="text-[10px] text-gray-500 ml-2">{leg.zone} zone</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Reasoning */}
+      <div className="bg-dark-700/30 rounded-lg p-3">
+        <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-1">Why This Strategy</span>
+        <p className="text-xs text-gray-300 leading-relaxed">{rec.reason}</p>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-3 mt-4">
+        <div className="text-center">
+          <div className="text-[10px] text-gray-500">IV Crush</div>
+          <div className={`text-sm font-bold ${rec.crushRatio >= 1.2 ? 'text-neon-green' : 'text-gray-300'}`}>
+            {rec.crushRatio?.toFixed(2) || '—'}x
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-[10px] text-gray-500">Win Rate</div>
+          <div className={`text-sm font-bold ${rec.winRate >= 75 ? 'text-neon-green' : 'text-neon-orange'}`}>
+            {rec.winRate?.toFixed(0) || '—'}%
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-[10px] text-gray-500">Bias</div>
+          <div className={`text-sm font-bold ${rec.bias === 'bullish' ? 'text-neon-green' : rec.bias === 'bearish' ? 'text-neon-red' : 'text-gray-300'}`}>
+            {rec.bias ? rec.bias.charAt(0).toUpperCase() + rec.bias.slice(1) : '—'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StockDetail({ stock, onClose }) {
   return (
     <div className="space-y-4">
@@ -494,6 +620,9 @@ export default function StockDetail({ stock, onClose }) {
         </div>
         <StatsRow stock={stock} />
       </div>
+
+      {/* Strategy Recommendation — the most important panel */}
+      <StrategyPanel stock={stock} />
 
       {/* Tastytrade IV Metrics (shows when Tastytrade is configured) */}
       <TastytradeMetrics ticker={stock.ticker} />

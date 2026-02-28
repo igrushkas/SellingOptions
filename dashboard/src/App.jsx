@@ -178,6 +178,15 @@ function Dashboard({ user, onLogout }) {
       />
 
       <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-6 pb-12">
+        {/* App Description Banner */}
+        <div className="mb-6 px-5 py-4 rounded-xl bg-gradient-to-r from-neon-blue/10 via-neon-purple/10 to-neon-blue/10 border border-neon-blue/20">
+          <p className="text-sm text-gray-300 leading-relaxed">
+            <span className="text-white font-semibold">Volatility Crusher</span> finds stocks where the options market is <span className="text-neon-orange font-semibold">overpricing</span> the expected earnings move.
+            When implied volatility is higher than the stock actually moves, we sell options outside the expected range and collect premium as IV collapses after the announcement.
+            Each stock gets a <span className="text-neon-green font-semibold">strategy recommendation</span> — strangle, iron condor, one-leg spread, or skip — based on historical directional bias, IV crush ratio, and win rate.
+          </p>
+        </div>
+
         <KPICards earnings={allEarnings} />
 
         {/* Tab Navigation */}

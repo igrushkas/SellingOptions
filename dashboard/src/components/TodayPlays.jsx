@@ -1,5 +1,5 @@
-import { Sun, Moon, Clock } from 'lucide-react';
-import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal, formatCurrency, calcSafeZone } from '../utils/calculations';
+import { Sun, Moon, Clock, ArrowDown, ArrowUp, Minus } from 'lucide-react';
+import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal, formatCurrency, calcSafeZone, getStrategyRecommendation } from '../utils/calculations';
 import Tooltip from './Tooltip';
 
 const signalBadge = {
@@ -16,11 +16,45 @@ const signalTip = {
   risky: 'IV Crush < 0.8x or Win Rate < 50%. The stock often moves MORE than implied — dangerous for sellers.',
 };
 
+const strategyColors = {
+  short_strangle: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', icon: '⇄' },
+  iron_condor: { bg: 'bg-neon-blue/10', text: 'text-neon-blue', border: 'border-neon-blue/30', icon: '◇' },
+  wide_iron_condor: { bg: 'bg-neon-blue/10', text: 'text-neon-blue', border: 'border-neon-blue/30', icon: '◇' },
+  naked_call: { bg: 'bg-neon-red/10', text: 'text-neon-red', border: 'border-neon-red/30', icon: '↓' },
+  naked_put: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', icon: '↑' },
+  bear_call_spread: { bg: 'bg-neon-red/10', text: 'text-neon-red', border: 'border-neon-red/30', icon: '↓' },
+  bull_put_spread: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', icon: '↑' },
+  skewed_strangle: { bg: 'bg-neon-purple/10', text: 'text-neon-purple', border: 'border-neon-purple/30', icon: '⇄' },
+  skip: { bg: 'bg-gray-700/50', text: 'text-gray-500', border: 'border-gray-600', icon: '✕' },
+};
+
+function BiasIndicator({ downPct, upPct }) {
+  if (!downPct && !upPct) return null;
+  const down = Math.round(downPct * 100);
+  const up = Math.round(upPct * 100);
+
+  return (
+    <div className="flex items-center gap-1.5 text-[10px]">
+      <span className="text-neon-red flex items-center gap-0.5">
+        <ArrowDown className="w-2.5 h-2.5" />{down}%
+      </span>
+      <div className="w-12 h-1.5 bg-dark-600 rounded-full overflow-hidden flex">
+        <div className="bg-neon-red/70 h-full" style={{ width: `${down}%` }} />
+        <div className="bg-neon-green/70 h-full" style={{ width: `${up}%` }} />
+      </div>
+      <span className="text-neon-green flex items-center gap-0.5">
+        {up}%<ArrowUp className="w-2.5 h-2.5" />
+      </span>
+    </div>
+  );
+}
+
 function PlayCard({ stock, onSelect, onAddTrade }) {
   const signal = getTradeSignal(stock.impliedMove, stock.historicalMoves);
   const winRate = calcHistoricalWinRate(stock.impliedMove, stock.historicalMoves);
   const crushRatio = calcIVCrushRatio(stock.impliedMove, stock.historicalMoves);
-  const zones = calcSafeZone(stock.price, stock.impliedMove, stock.historicalMoves);
+  const rec = getStrategyRecommendation(stock);
+  const strat = strategyColors[rec.strategy] || strategyColors.skip;
 
   return (
     <div
@@ -67,26 +101,47 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
         </Tooltip>
       </div>
 
-      {/* Quick strike zones */}
-      <div className="bg-dark-700/50 rounded-lg p-3 text-xs space-y-1.5">
-        <Tooltip text="Sell a naked call at this strike or higher. Price must stay below this for your option to expire worthless (profit)." position="left">
-          <div className="flex justify-between w-full">
-            <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">Sell Call Above:</span>
-            <span className="text-neon-green font-semibold">{formatCurrency(zones.safe.high)}</span>
+      {/* Strategy Recommendation */}
+      <Tooltip text={rec.reason} position="bottom">
+        <div className={`rounded-lg p-3 mb-3 border ${strat.bg} ${strat.border} cursor-help`}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-bold ${strat.text} uppercase`}>
+              {strat.icon} {rec.strategyName}
+            </span>
+            {rec.confidence > 0 && (
+              <span className={`text-[10px] font-semibold ${strat.text}`}>
+                {rec.confidence}% conf
+              </span>
+            )}
           </div>
-        </Tooltip>
-        <Tooltip text="Sell a naked put at this strike or lower. Price must stay above this for your option to expire worthless (profit)." position="left">
-          <div className="flex justify-between w-full">
-            <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">Sell Put Below:</span>
-            <span className="text-neon-green font-semibold">{formatCurrency(zones.safe.low)}</span>
-          </div>
-        </Tooltip>
-      </div>
+
+          {/* Directional bias bar */}
+          {rec.downPct != null && rec.strategy !== 'skip' && (
+            <div className="mb-1.5">
+              <BiasIndicator downPct={rec.downPct} upPct={rec.upPct} />
+            </div>
+          )}
+
+          {/* Leg details */}
+          {rec.legs.length > 0 && (
+            <div className="space-y-0.5">
+              {rec.legs.map((leg, i) => (
+                <div key={i} className="flex justify-between text-[10px]">
+                  <span className={leg.type.startsWith('Sell') ? 'text-neon-orange font-semibold' : 'text-gray-500'}>
+                    {leg.type}
+                  </span>
+                  <span className="text-white font-semibold">{formatCurrency(leg.strike)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Tooltip>
 
       {/* Add trade button */}
       <button
         onClick={(e) => { e.stopPropagation(); onAddTrade(stock); }}
-        className="w-full mt-3 py-2 rounded-lg bg-neon-purple/20 text-neon-purple text-xs font-semibold border border-neon-purple/30 hover:bg-neon-purple/30 transition-all"
+        className="w-full mt-1 py-2 rounded-lg bg-neon-purple/20 text-neon-purple text-xs font-semibold border border-neon-purple/30 hover:bg-neon-purple/30 transition-all"
       >
         + Log Trade
       </button>
@@ -190,7 +245,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
             <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">4</span>
             <div>
               <span className="text-white font-semibold">3-3:45 PM ET</span>
-              <p className="text-gray-400 mt-0.5">Sell naked calls above safe high, naked puts below safe low. Log trades here.</p>
+              <p className="text-gray-400 mt-0.5">Sell options at recommended strikes per strategy. Log trades here.</p>
             </div>
           </div>
         </div>
