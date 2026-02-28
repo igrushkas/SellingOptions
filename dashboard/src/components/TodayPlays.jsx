@@ -87,32 +87,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
 
   return (
     <div className="space-y-8">
-      {/* AMC Plays */}
-      <div>
-        <div className="flex items-center gap-3 mb-4">
-          <Moon className="w-5 h-5 text-neon-purple" />
-          <h2 className="text-lg font-bold text-white">{amcLabel || "Tonight's Earnings (AMC)"}</h2>
-          <span className="text-xs text-gray-500">
-            — Sell options NOW, close next trading morning
-          </span>
-          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-purple/15 text-neon-purple border border-neon-purple/30 font-semibold">
-            {tonightAMC.length} stocks
-          </span>
-        </div>
-        {tonightAMC.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-            {tonightAMC.map(stock => (
-              <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
-            ))}
-          </div>
-        ) : (
-          <div className="glass-card p-8 text-center text-gray-500 text-sm">
-            No AMC earnings above $5 today
-          </div>
-        )}
-      </div>
-
-      {/* BMO Plays */}
+      {/* BMO Plays — morning first */}
       <div>
         <div className="flex items-center gap-3 mb-4">
           <Sun className="w-5 h-5 text-neon-orange" />
@@ -133,6 +108,31 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
         ) : (
           <div className="glass-card p-8 text-center text-gray-500 text-sm">
             No BMO earnings above $5 for next trading day
+          </div>
+        )}
+      </div>
+
+      {/* AMC Plays — evening second */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <Moon className="w-5 h-5 text-neon-purple" />
+          <h2 className="text-lg font-bold text-white">{amcLabel || "Tonight's Earnings (AMC)"}</h2>
+          <span className="text-xs text-gray-500">
+            — Sell options NOW, close next trading morning
+          </span>
+          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-purple/15 text-neon-purple border border-neon-purple/30 font-semibold">
+            {tonightAMC.length} stocks
+          </span>
+        </div>
+        {tonightAMC.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+            {tonightAMC.map(stock => (
+              <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
+            ))}
+          </div>
+        ) : (
+          <div className="glass-card p-8 text-center text-gray-500 text-sm">
+            No AMC earnings above $5 today
           </div>
         )}
       </div>
