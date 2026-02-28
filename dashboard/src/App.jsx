@@ -6,6 +6,8 @@ import StockDetail from './components/StockDetail';
 import AIAnalysisPanel from './components/AIAnalysisPanel';
 import TodayPlays from './components/TodayPlays';
 import TradeTracker from './components/TradeTracker';
+import LoginScreen from './components/LoginScreen';
+import { useAuth } from './hooks/useAuth';
 import { subscribeTrades } from './services/tradeService';
 import { fetchTodaysPlaysDirect } from './services/earningsApi';
 import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database } from 'lucide-react';
@@ -14,6 +16,25 @@ import './index.css';
 const API_BASE = '/api';
 
 function App() {
+  const { user, loading: authLoading, error: authError, login, logout } = useAuth();
+
+  // Auth gate — show login screen until authenticated
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen onLogin={login} error={authError} loading={authLoading} />;
+  }
+
+  return <Dashboard user={user} onLogout={logout} />;
+}
+
+function Dashboard({ user, onLogout }) {
   const [selectedStock, setSelectedStock] = useState(null);
   const [dateFilter, setDateFilter] = useState(() => {
     const d = new Date();
@@ -151,6 +172,8 @@ function App() {
         showWeeklyOnly={showWeeklyOnly}
         setShowWeeklyOnly={setShowWeeklyOnly}
         totalStocks={allEarnings.length}
+        user={user}
+        onLogout={onLogout}
       />
 
       <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-6 pb-12">

@@ -1,6 +1,6 @@
-import { TrendingUp, Filter, Calendar, Zap } from 'lucide-react';
+import { TrendingUp, Filter, Calendar, Zap, LogOut } from 'lucide-react';
 
-export default function Header({ dateFilter, setDateFilter, showWeeklyOnly, setShowWeeklyOnly, totalStocks }) {
+export default function Header({ dateFilter, setDateFilter, showWeeklyOnly, setShowWeeklyOnly, totalStocks, user, onLogout }) {
   return (
     <header className="sticky top-0 z-50 bg-dark-900/80 backdrop-blur-xl border-b border-glass-border">
       <div className="max-w-[1400px] mx-auto px-8 lg:px-12 py-4">
@@ -44,6 +44,17 @@ export default function Header({ dateFilter, setDateFilter, showWeeklyOnly, setS
               <TrendingUp className="w-4 h-4 text-neon-green" />
               <span className="text-white font-semibold">{totalStocks}</span> stocks reporting
             </div>
+
+            {user && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-neon-red hover:bg-neon-red/10 border border-glass-border transition-all"
+                title={`Signed in as ${user.email}`}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign out
+              </button>
+            )}
           </div>
         </div>
       </div>
