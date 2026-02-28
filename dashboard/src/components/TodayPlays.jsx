@@ -1,11 +1,19 @@
 import { Sun, Moon, Clock } from 'lucide-react';
 import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal, formatCurrency, calcSafeZone } from '../utils/calculations';
+import Tooltip from './Tooltip';
 
 const signalBadge = {
   excellent: 'bg-neon-green/15 text-neon-green border-neon-green/30',
   good: 'bg-neon-blue/15 text-neon-blue border-neon-blue/30',
   neutral: 'bg-neon-yellow/15 text-neon-yellow border-neon-yellow/30',
   risky: 'bg-neon-red/15 text-neon-red border-neon-red/30',
+};
+
+const signalTip = {
+  excellent: 'IV Crush > 1.2x and Win Rate > 75%. The market is significantly overpricing this earnings move — high probability selling opportunity.',
+  good: 'IV Crush > 1.0x and Win Rate > 60%. Options are moderately overpriced — decent setup for premium sellers.',
+  neutral: 'IV Crush near 1.0x. The market is pricing the move about right — proceed with caution.',
+  risky: 'IV Crush < 0.8x or Win Rate < 50%. The stock often moves MORE than implied — dangerous for sellers.',
 };
 
 function PlayCard({ stock, onSelect, onAddTrade }) {
@@ -22,9 +30,11 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-white">{stock.ticker}</span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold uppercase ${signalBadge[signal]}`}>
-            {signal}
-          </span>
+          <Tooltip text={signalTip[signal]} position="right">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold uppercase cursor-help ${signalBadge[signal]}`}>
+              {signal}
+            </span>
+          </Tooltip>
         </div>
         <span className="text-sm font-semibold text-white">{formatCurrency(stock.price)}</span>
       </div>
@@ -34,33 +44,43 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
       )}
 
       <div className="grid grid-cols-3 gap-3 text-xs mb-3">
-        <div>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Implied</span>
-            {stock.ivSource === 'orats' && <span className="text-[8px] text-neon-purple font-bold">ORATS</span>}
+        <Tooltip text="Expected stock move based on options pricing. The market is pricing in this % move after earnings." position="bottom">
+          <div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">Implied</span>
+              {stock.ivSource === 'orats' && <span className="text-[8px] text-neon-purple font-bold">ORATS</span>}
+            </div>
+            <div className="text-neon-orange font-bold">±{stock.impliedMove}%</div>
           </div>
-          <div className="text-neon-orange font-bold">±{stock.impliedMove}%</div>
-        </div>
-        <div>
-          <span className="text-gray-500">Win Rate</span>
-          <div className={`font-bold ${winRate >= 75 ? 'text-neon-green' : 'text-neon-orange'}`}>{winRate.toFixed(0)}%</div>
-        </div>
-        <div>
-          <span className="text-gray-500">IV Crush</span>
-          <div className={`font-bold ${crushRatio >= 1.2 ? 'text-neon-green' : 'text-gray-300'}`}>{crushRatio.toFixed(2)}x</div>
-        </div>
+        </Tooltip>
+        <Tooltip text="How often the actual earnings move was LESS than the implied move. Higher = more profitable for premium sellers." position="bottom">
+          <div>
+            <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">Win Rate</span>
+            <div className={`font-bold ${winRate >= 75 ? 'text-neon-green' : 'text-neon-orange'}`}>{winRate.toFixed(0)}%</div>
+          </div>
+        </Tooltip>
+        <Tooltip text="Implied Move / Avg Historical Move. Above 1.0 = IV is overpriced vs reality. Above 1.2 = excellent selling opportunity." position="bottom">
+          <div>
+            <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">IV Crush</span>
+            <div className={`font-bold ${crushRatio >= 1.2 ? 'text-neon-green' : 'text-gray-300'}`}>{crushRatio.toFixed(2)}x</div>
+          </div>
+        </Tooltip>
       </div>
 
       {/* Quick strike zones */}
       <div className="bg-dark-700/50 rounded-lg p-3 text-xs space-y-1.5">
-        <div className="flex justify-between">
-          <span className="text-gray-500">Sell Call Above:</span>
-          <span className="text-neon-green font-semibold">{formatCurrency(zones.safe.high)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Sell Put Below:</span>
-          <span className="text-neon-green font-semibold">{formatCurrency(zones.safe.low)}</span>
-        </div>
+        <Tooltip text="Sell a naked call at this strike or higher. Price must stay below this for your option to expire worthless (profit)." position="left">
+          <div className="flex justify-between w-full">
+            <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">Sell Call Above:</span>
+            <span className="text-neon-green font-semibold">{formatCurrency(zones.safe.high)}</span>
+          </div>
+        </Tooltip>
+        <Tooltip text="Sell a naked put at this strike or lower. Price must stay above this for your option to expire worthless (profit)." position="left">
+          <div className="flex justify-between w-full">
+            <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">Sell Put Below:</span>
+            <span className="text-neon-green font-semibold">{formatCurrency(zones.safe.low)}</span>
+          </div>
+        </Tooltip>
       </div>
 
       {/* Add trade button */}

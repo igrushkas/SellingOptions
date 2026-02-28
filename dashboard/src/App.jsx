@@ -7,6 +7,7 @@ import AIAnalysisPanel from './components/AIAnalysisPanel';
 import TodayPlays from './components/TodayPlays';
 import TradeTracker from './components/TradeTracker';
 import LoginScreen from './components/LoginScreen';
+import MarketSentiment from './components/MarketSentiment';
 import { useAuth } from './hooks/useAuth';
 import { subscribeTrades } from './services/tradeService';
 import { fetchTodaysPlaysDirect } from './services/earningsApi';
@@ -233,6 +234,7 @@ function Dashboard({ user, onLogout }) {
         {/* Today's Plays Tab */}
         {activeTab === 'today' && (
           <>
+            <MarketSentiment />
             <TodayPlays
               amcEarnings={amcStocks}
               bmoEarnings={bmoStocks}

@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Target, ShieldCheck, AlertTriangle, DollarSign } from 'lucide-react';
 import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal } from '../utils/calculations';
+import Tooltip from './Tooltip';
 
 export default function KPICards({ earnings }) {
   // Calculate aggregate KPIs
@@ -20,6 +21,7 @@ export default function KPICards({ earnings }) {
       icon: Target,
       color: 'neon-green',
       glow: 'glow-green',
+      tip: 'Stocks with IV Crush Ratio > 1.2x AND Win Rate > 75%. These are the best candidates for selling premium — the market is significantly overpricing the expected move.',
     },
     {
       label: 'Good Setups',
@@ -28,6 +30,7 @@ export default function KPICards({ earnings }) {
       icon: TrendingUp,
       color: 'neon-blue',
       glow: 'glow-blue',
+      tip: 'Stocks with IV Crush > 1.0x AND Win Rate > 60%. Decent selling opportunities with favorable odds, but not as strong as excellent setups.',
     },
     {
       label: 'Avg Win Rate',
@@ -36,6 +39,7 @@ export default function KPICards({ earnings }) {
       icon: ShieldCheck,
       color: avgWinRate >= 75 ? 'neon-green' : 'neon-orange',
       glow: avgWinRate >= 75 ? 'glow-green' : '',
+      tip: 'Average historical win rate across all stocks. This is how often selling at the implied move distance would have been profitable historically. 75%+ is ideal.',
     },
     {
       label: 'Avg IV Crush Ratio',
@@ -44,6 +48,7 @@ export default function KPICards({ earnings }) {
       icon: DollarSign,
       color: avgCrushRatio > 1.2 ? 'neon-green' : 'neon-orange',
       glow: avgCrushRatio > 1.2 ? 'glow-green' : '',
+      tip: 'Implied Move / Avg Historical Move across all stocks. Above 1.0 means options are overpriced on average. Above 1.2 is a strong signal to sell premium.',
     },
     {
       label: 'Highest IV Stock',
@@ -52,6 +57,7 @@ export default function KPICards({ earnings }) {
       icon: AlertTriangle,
       color: 'neon-red',
       glow: 'glow-red',
+      tip: 'The stock with the largest expected move. High implied moves mean expensive options — which can be great for sellers IF the IV crush ratio is also high.',
     },
     {
       label: 'Risky Setups',
@@ -60,20 +66,23 @@ export default function KPICards({ earnings }) {
       icon: TrendingDown,
       color: 'neon-red',
       glow: 'glow-red',
+      tip: 'Stocks where IV Crush < 0.8x — the actual move is typically BIGGER than what options price in. Selling premium on these is dangerous. Avoid.',
     },
   ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
       {cards.map((card) => (
-        <div key={card.label} className={`glass-card p-4 ${card.glow}`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-400 uppercase tracking-wider">{card.label}</span>
-            <card.icon className={`w-4 h-4 text-${card.color}`} />
+        <Tooltip key={card.label} text={card.tip} position="bottom">
+          <div className={`glass-card p-4 ${card.glow} cursor-help`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-400 uppercase tracking-wider">{card.label}</span>
+              <card.icon className={`w-4 h-4 text-${card.color}`} />
+            </div>
+            <div className={`text-2xl font-bold text-${card.color}`}>{card.value}</div>
+            <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
           </div>
-          <div className={`text-2xl font-bold text-${card.color}`}>{card.value}</div>
-          <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
-        </div>
+        </Tooltip>
       ))}
     </div>
   );

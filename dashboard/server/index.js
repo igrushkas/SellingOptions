@@ -6,6 +6,7 @@ import { analyzeWithAI } from './services/openai.js';
 import { fetchEarningsData, fetchIVSummary, fetchImpliedEarningsMove, buildHistoricalMoves, calcOratsIVCrushStats } from './services/orats.js';
 import { fetchHistoricalOptions, fetchImpliedMove as avImpliedMove } from './services/alphaVantage.js';
 import { fetchMarketMetrics, fetchOptionChain, isTastytradeConfigured } from './services/tastytrade.js';
+import { getMarketSentiment, refreshMarketSentiment } from './services/marketSentiment.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -160,6 +161,27 @@ app.get('/api/tastytrade/chain/:ticker', async (req, res) => {
   } catch (error) {
     console.error('Tastytrade chain error:', error.message);
     res.status(500).json({ error: 'Tastytrade chain failed', message: error.message });
+  }
+});
+
+// Market sentiment: ChatGPT analysis of market conditions + recent earnings
+app.get('/api/market-sentiment', async (req, res) => {
+  try {
+    const apiKey = req.query.apiKey || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({
+        error: 'OpenAI API key required',
+        setup: 'Pass ?apiKey=sk-... or add OPENAI_API_KEY to .env',
+      });
+    }
+    const force = req.query.refresh === 'true';
+    const data = force
+      ? await refreshMarketSentiment(apiKey)
+      : await getMarketSentiment(apiKey);
+    res.json(data);
+  } catch (error) {
+    console.error('Market sentiment error:', error.message);
+    res.status(500).json({ error: 'Market sentiment failed', message: error.message });
   }
 });
 
