@@ -17,6 +17,7 @@ import https from 'https';
 import { fetchEarningsCalendar as finnhubCalendar, fetchEarningsSurprises } from './finnhub.js';
 import { fetchEarningsCalendar as fmpCalendar } from './fmp.js';
 import { fetchImpliedMove as yahooImpliedMove } from './yahooOptions.js';
+import { fetchHistoricalEarningsMoves } from './yahooEarnings.js';
 import { fetchEarningsData, fetchImpliedEarningsMove, buildHistoricalMoves, calcOratsIVCrushStats } from './orats.js';
 import { fetchImpliedMove as alphaVantageImpliedMove, fetchEarningsCalendar as avEarningsCalendar } from './alphaVantage.js';
 
@@ -186,46 +187,45 @@ async function enrichTicker(entry, keys) {
 
   const price = yahooData.price || 0;
 
-  // ── Historical Moves: ORATS (actual stock moves) > Alpha Vantage > Finnhub ──
+  // ── Historical Moves: ORATS > Yahoo (actual stock price moves) > Finnhub (EPS) ──
+  //
+  // IMPORTANT: The strategy engine needs ACTUAL STOCK PRICE MOVES, not EPS surprises.
+  // ORATS and Yahoo Finance provide stock price moves. Finnhub/Alpha Vantage only
+  // provide EPS surprise % which is a poor proxy (stock can drop on positive EPS surprise).
+  //
   let historicalMoves;
   let historySource = 'none';
 
+  // 1. ORATS: best source — actual stock price moves with pre-calculated IV
   if (oratsEarnings) {
     historicalMoves = buildHistoricalMoves(oratsEarnings, 20);
     historySource = 'orats';
     console.log(`[Orchestrator] ${ticker}: ORATS historical moves (${historicalMoves.length} quarters)`);
   }
 
-  // Finnhub free tier only returns ~4 quarters; supplement with Alpha Vantage
-  if (!historicalMoves || historicalMoves.length < 8) {
-    const finnhubMoves = finnhubSurprises || [];
-
-    // Try Alpha Vantage earnings (returns many more quarters, 24h cached)
-    if (keys.alphaVantage) {
-      try {
-        const avEarnings = await avEarningsCalendar(ticker);
-        if (avEarnings && avEarnings.length > finnhubMoves.length) {
-          historicalMoves = avEarnings
-            .filter(e => e.epsSurprisePct != null)
-            .slice(0, 20)
-            .map(e => ({
-              quarter: formatQuarterFromDate(e.fiscalDate || e.date),
-              actual: Math.abs(e.epsSurprisePct),
-              direction: e.epsSurprisePct >= 0 ? 'up' : 'down',
-              date: e.date || '',
-            }));
-          historySource = 'alpha_vantage';
-          console.log(`[Orchestrator] ${ticker}: Alpha Vantage historical earnings (${historicalMoves.length} quarters)`);
-        }
-      } catch {
-        // Alpha Vantage failed, fall through to Finnhub
+  // 2. Yahoo Finance: actual stock price moves (free, no API key, unlimited)
+  if (!historicalMoves || historicalMoves.length < 4) {
+    try {
+      const yahooMoves = await fetchHistoricalEarningsMoves(ticker);
+      if (yahooMoves && yahooMoves.length > (historicalMoves?.length || 0)) {
+        historicalMoves = yahooMoves;
+        historySource = 'yahoo';
+        console.log(`[Orchestrator] ${ticker}: Yahoo historical price moves (${historicalMoves.length} quarters)`);
       }
+    } catch {
+      // Yahoo failed, fall through to Finnhub EPS
     }
+  }
 
-    // Fall back to Finnhub if AV didn't produce more
-    if (!historicalMoves || historicalMoves.length < finnhubMoves.length) {
+  // 3. Finnhub EPS surprises (last resort — these are EPS %, not stock price moves)
+  if (!historicalMoves || historicalMoves.length < 4) {
+    const finnhubMoves = finnhubSurprises || [];
+    if (finnhubMoves.length > (historicalMoves?.length || 0)) {
       historicalMoves = finnhubMoves;
       historySource = finnhubMoves.length > 0 ? 'finnhub' : 'none';
+      if (finnhubMoves.length > 0) {
+        console.log(`[Orchestrator] ${ticker}: Finnhub EPS surprises as fallback (${finnhubMoves.length} quarters) — note: these are EPS %, not stock price moves`);
+      }
     }
   }
 

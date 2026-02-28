@@ -221,10 +221,25 @@ async function enrichBatchRateLimited(rawList, timing, keys) {
 async function enrichSingle(entry, timing, keys) {
   const ticker = entry.symbol;
 
-  const [profile, historicalMoves] = await Promise.all([
+  const [profile, finnhubMoves] = await Promise.all([
     keys.finnhub ? fetchProfile(ticker, keys.finnhub) : Promise.resolve(null),
     keys.finnhub ? fetchSurprises(ticker, keys.finnhub) : Promise.resolve([]),
   ]);
+
+  // Try to get ACTUAL stock price moves from Yahoo Finance (free, no key)
+  // This is much better than Finnhub EPS surprises for the strategy engine
+  let historicalMoves = finnhubMoves;
+  let historySource = finnhubMoves.length > 0 ? 'finnhub' : 'none';
+
+  try {
+    const yahooMoves = await fetchYahooEarningsMoves(ticker);
+    if (yahooMoves && yahooMoves.length > finnhubMoves.length) {
+      historicalMoves = yahooMoves;
+      historySource = 'yahoo';
+    }
+  } catch {
+    // Yahoo failed, use Finnhub EPS surprises as fallback
+  }
 
   const rawCap = profile?.marketCapRaw || 0;
 
@@ -237,9 +252,10 @@ async function enrichSingle(entry, timing, keys) {
     sector: profile?.sector || '',
     date: entry.date,
     timing,
-    hasWeeklyOptions: rawCap >= 2e9, // Stocks with weeklies generally have market cap > $2B
+    hasWeeklyOptions: rawCap >= 2e9,
     impliedMove: 0, // Options IV only available via backend (Yahoo Finance, no CORS)
     historicalMoves,
+    historySource,
     // Finnhub calendar fields
     epsEstimate: entry.epsEstimate ?? null,
     epsPrior: entry.epsActual ?? null,
@@ -291,6 +307,102 @@ async function fetchSurprises(ticker, apiKey) {
         date: e.period || '',
       };
     });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch ACTUAL stock price moves on earnings from Yahoo Finance.
+ * Uses chart endpoint to get price history, then calculates close-to-close moves
+ * around earnings dates obtained from Finnhub's earnings data we already have.
+ *
+ * This gives actual stock moves (e.g., "dropped 3%") instead of EPS surprises.
+ * Works client-side via CORS-friendly Yahoo chart endpoint.
+ */
+const yahooEarningsCache = {};
+async function fetchYahooEarningsMoves(ticker) {
+  if (yahooEarningsCache[ticker]) return yahooEarningsCache[ticker];
+
+  try {
+    // Get 5 years of daily prices
+    const chartRes = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y`
+    );
+    if (!chartRes.ok) return [];
+    const chartData = await chartRes.json();
+    const result = chartData?.chart?.result?.[0];
+    if (!result?.timestamp) return [];
+
+    const timestamps = result.timestamp;
+    const closes = result.indicators?.quote?.[0]?.close || [];
+    const opens = result.indicators?.quote?.[0]?.open || [];
+
+    // Build price lookup by date
+    const prices = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const d = new Date(timestamps[i] * 1000);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      prices.push({ date: dateStr, open: opens[i], close: closes[i] });
+    }
+
+    // Get earnings dates from Yahoo earningsHistory
+    const summaryRes = await fetch(
+      `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=earningsHistory`
+    );
+    if (!summaryRes.ok) return [];
+    const summaryData = await summaryRes.json();
+    const history = summaryData?.quoteSummary?.result?.[0]?.earningsHistory?.history;
+    if (!history || history.length === 0) return [];
+
+    const earningsDates = history
+      .filter(e => e.quarter?.fmt)
+      .map(e => e.quarter.fmt);
+
+    // Build date index
+    const dateIdx = {};
+    prices.forEach((p, i) => { dateIdx[p.date] = i; });
+
+    // Calculate moves
+    const moves = [];
+    for (const earningsDate of earningsDates) {
+      let idx = dateIdx[earningsDate];
+      // Try nearby dates if exact match not found
+      if (idx == null) {
+        const d = new Date(earningsDate + 'T12:00:00');
+        for (let off = 1; off <= 3; off++) {
+          const tryD = new Date(d);
+          tryD.setDate(tryD.getDate() + off);
+          const tryStr = `${tryD.getFullYear()}-${String(tryD.getMonth() + 1).padStart(2, '0')}-${String(tryD.getDate()).padStart(2, '0')}`;
+          if (dateIdx[tryStr] != null) { idx = dateIdx[tryStr]; break; }
+        }
+      }
+      if (idx == null || idx < 1) continue;
+
+      const dayOf = prices[idx];
+      const dayBefore = prices[idx - 1];
+      if (!dayOf?.close || !dayBefore?.close) continue;
+
+      const closeToClose = ((dayOf.close - dayBefore.close) / dayBefore.close) * 100;
+      const gapMove = dayOf.open && dayBefore.close
+        ? ((dayOf.open - dayBefore.close) / dayBefore.close) * 100 : 0;
+
+      const bestMove = Math.abs(gapMove) > Math.abs(closeToClose) ? gapMove : closeToClose;
+
+      const d = new Date(earningsDate + 'T12:00:00');
+      const quarter = Math.floor(d.getMonth() / 3) + 1;
+
+      moves.push({
+        quarter: `Q${quarter} ${d.getFullYear()}`,
+        actual: Math.round(Math.abs(bestMove) * 10) / 10,
+        direction: bestMove >= 0 ? 'up' : 'down',
+        date: earningsDate,
+      });
+    }
+
+    moves.sort((a, b) => b.date.localeCompare(a.date));
+    yahooEarningsCache[ticker] = moves;
+    return moves;
   } catch {
     return [];
   }
