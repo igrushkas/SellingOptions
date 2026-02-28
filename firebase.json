@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "sellingoptions-a8da4",
     "public": "dashboard/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
