@@ -521,13 +521,15 @@ function StrategyPanel({ stock }) {
         </div>
       )}
 
-      {/* Leg Details */}
+      {/* Leg Details — exact trade instructions */}
       {rec.legs.length > 0 && (
         <div className="mb-4">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-2">Trade Legs</span>
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-2">Exact Trade (per 1 contract)</span>
           <div className="grid gap-2">
             {rec.legs.map((leg, i) => {
-              const isSell = leg.type.startsWith('Sell');
+              const isSell = leg.type === 'Sell' || leg.type.startsWith('Sell');
+              const instrument = leg.instrument || leg.type.replace('Sell ', '').replace('Buy ', '');
+              const qty = leg.qty || 1;
               return (
                 <div key={i} className={`flex items-center justify-between p-2.5 rounded-lg ${
                   isSell ? 'bg-neon-orange/10 border border-neon-orange/20' : 'bg-dark-700/50 border border-glass-border'
@@ -538,11 +540,11 @@ function StrategyPanel({ stock }) {
                     }`}>
                       {isSell ? 'SELL' : 'BUY'}
                     </span>
-                    <span className="text-xs text-white font-semibold">{leg.type.replace('Sell ', '').replace('Buy ', '')}</span>
+                    <span className="text-xs text-white font-semibold">{qty} {instrument}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-white">{formatCurrency(leg.strike)}</span>
-                    <span className="text-[10px] text-gray-500 ml-2">{leg.zone} zone</span>
+                    <span className="text-sm font-bold text-white">@ {formatCurrency(leg.strike)}</span>
+                    <span className="text-[10px] text-gray-500 ml-2">{leg.zone}</span>
                   </div>
                 </div>
               );
@@ -556,6 +558,35 @@ function StrategyPanel({ stock }) {
         <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-1">Why This Strategy</span>
         <p className="text-xs text-gray-300 leading-relaxed">{rec.reason}</p>
       </div>
+
+      {/* Position Sizing + Exit Rules */}
+      {rec.sizing && rec.exitRules && (
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="bg-dark-700/30 rounded-lg p-3">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-2">Position Sizing</span>
+            <div className="text-lg font-bold text-neon-purple">{rec.sizing.accountPct}%</div>
+            <div className="text-[10px] text-gray-500">of account per trade</div>
+            <div className="text-[10px] text-gray-600 mt-1">Kelly: {rec.sizing.kellyFull}% (using quarter)</div>
+          </div>
+          <div className="bg-dark-700/30 rounded-lg p-3">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-2">Exit Rules</span>
+            <div className="space-y-1 text-[10px]">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Profit target:</span>
+                <span className="text-neon-green font-semibold">{rec.exitRules.profitTarget}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Stop loss:</span>
+                <span className="text-neon-red font-semibold">{rec.exitRules.stopLoss}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Time exit:</span>
+                <span className="text-white font-semibold">10 AM ET next day</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-3 mt-4">

@@ -20,13 +20,23 @@ const strategyColors = {
   short_strangle: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', icon: '⇄' },
   iron_condor: { bg: 'bg-neon-blue/10', text: 'text-neon-blue', border: 'border-neon-blue/30', icon: '◇' },
   wide_iron_condor: { bg: 'bg-neon-blue/10', text: 'text-neon-blue', border: 'border-neon-blue/30', icon: '◇' },
+  ultra_wide_condor: { bg: 'bg-gray-600/30', text: 'text-gray-400', border: 'border-gray-500', icon: '◇' },
   naked_call: { bg: 'bg-neon-red/10', text: 'text-neon-red', border: 'border-neon-red/30', icon: '↓' },
   naked_put: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', icon: '↑' },
   bear_call_spread: { bg: 'bg-neon-red/10', text: 'text-neon-red', border: 'border-neon-red/30', icon: '↓' },
   bull_put_spread: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', icon: '↑' },
   skewed_strangle: { bg: 'bg-neon-purple/10', text: 'text-neon-purple', border: 'border-neon-purple/30', icon: '⇄' },
+  jade_lizard: { bg: 'bg-neon-green/10', text: 'text-neon-green', border: 'border-neon-green/30', icon: '🦎' },
+  twisted_sister: { bg: 'bg-neon-red/10', text: 'text-neon-red', border: 'border-neon-red/30', icon: '🌀' },
   skip: { bg: 'bg-gray-700/50', text: 'text-gray-500', border: 'border-gray-600', icon: '✕' },
 };
+
+// Format a leg for display: "Sell 1 Call" or "Buy 1 Put"
+function formatLeg(leg) {
+  if (leg.instrument) return `${leg.type} ${leg.qty || 1} ${leg.instrument}`;
+  // Legacy format: "Sell Call" etc
+  return leg.type;
+}
 
 function BiasIndicator({ downPct, upPct }) {
   if (!downPct && !upPct) return null;
@@ -127,12 +137,20 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
             <div className="space-y-0.5">
               {rec.legs.map((leg, i) => (
                 <div key={i} className="flex justify-between text-[10px]">
-                  <span className={leg.type.startsWith('Sell') ? 'text-neon-orange font-semibold' : 'text-gray-500'}>
-                    {leg.type}
+                  <span className={leg.type === 'Sell' || leg.type.startsWith('Sell') ? 'text-neon-orange font-semibold' : 'text-gray-500'}>
+                    {formatLeg(leg)}
                   </span>
                   <span className="text-white font-semibold">{formatCurrency(leg.strike)}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Position sizing + exit */}
+          {rec.sizing && (
+            <div className="mt-1.5 pt-1.5 border-t border-white/5 flex justify-between text-[9px]">
+              <span className="text-gray-500">Size: <span className="text-white font-semibold">{rec.sizing.accountPct}% of account</span></span>
+              <span className="text-gray-500">Exit: <span className="text-neon-green font-semibold">50% profit</span></span>
             </div>
           )}
         </div>

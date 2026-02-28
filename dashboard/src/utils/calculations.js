@@ -214,16 +214,19 @@ export function calcNewsSentiment(news) {
 }
 
 /**
- * Strategy Recommendation Engine
+ * Strategy Recommendation Engine (v2)
  *
- * Analyzes historical moves, IV crush, directional bias, and move consistency
- * to recommend the optimal options strategy for each earnings play.
+ * Based on research from Predicting Alpha, Tastytrade, ORATS, Option Alpha,
+ * and professional options desk approaches. Key principles:
  *
- * Professional firms use these rules:
- * - Sell both sides (strangle/condor) only when direction is unpredictable
- * - Sell one leg when stock has strong directional bias after earnings
- * - Use defined-risk (spreads/condors) when win rate < 80% or crush < 1.3
- * - Skip entirely when IV is underpriced (crush < 0.9) or win rate < 55%
+ * Gate 1: Should I trade? (tail risk, IV crush, win rate checks)
+ * Gate 2: One leg or two? (directional bias from last 8 quarters)
+ * Gate 3: Defined or undefined risk? (consistency, price, crush strength)
+ * Gate 4: Which specific strategy? (full matrix)
+ *
+ * Advanced strategies: Jade Lizard, Twisted Sister for moderate bias + very high IV
+ * Position sizing: 1-5% of account based on signal quality (Kelly Criterion)
+ * Exit rules: 50% profit target, 2x credit stop loss (per Tastytrade research)
  */
 export function getStrategyRecommendation(stock) {
   const { historicalMoves, impliedMove, price } = stock;
@@ -232,9 +235,10 @@ export function getStrategyRecommendation(stock) {
       strategy: 'skip',
       strategyName: 'Skip — Insufficient Data',
       legs: [],
-      reason: 'Not enough historical data to make a reliable recommendation.',
+      reason: 'Need at least 4 quarters of earnings history for a reliable recommendation.',
       confidence: 0,
       riskLevel: 'unknown',
+      sizing: null, exitRules: null,
     };
   }
 
@@ -262,158 +266,302 @@ export function getStrategyRecommendation(stock) {
   // Consistency: low stdDev relative to avgMove = predictable
   const consistency = avgMove > 0 ? 1 - (stdDev / avgMove) : 0;
 
-  // Move severity: how bad can it get?
+  // Move severity: how bad can it get? (tail risk check)
   const moveSeverity = maxMove / (impliedMove || 1);
 
-  // === SKIP CONDITIONS ===
-  if (crushRatio < 0.85 && winRate < 55) {
+  // High price forces defined risk (iron condor/spreads over naked)
+  const forceDefinedRisk = price > 200 || consistency < 0.3;
+
+  // Shared fields for all results
+  const shared = { crushRatio, winRate, downPct, upPct, avgDownMag, avgUpMag };
+
+  // Helper: position sizing based on Kelly Criterion (quarter Kelly)
+  const calcSizing = (signal) => {
+    // Kelly % = W - [(1-W)/R], where R = avg win / avg loss, assume R ~ crushRatio
+    const w = winRate / 100;
+    const r = Math.max(crushRatio, 0.5);
+    const fullKelly = Math.max(0, w - (1 - w) / r);
+    const quarterKelly = fullKelly * 0.25;
+
+    const pctMap = { excellent: 5, good: 3.5, fair: 2, marginal: 1 };
+    const maxPct = pctMap[signal] || 2;
+    return {
+      accountPct: Math.min(maxPct, Math.round(quarterKelly * 100 * 10) / 10),
+      signal,
+      kellyFull: Math.round(fullKelly * 100),
+    };
+  };
+
+  // Helper: exit rules
+  const exitRules = {
+    profitTarget: '50% of max credit',
+    stopLoss: '2x credit received',
+    timeExit: 'Close by 10:00 AM ET morning after earnings',
+    management: 'If realized move < implied: let IV crush play out, close for profit. If realized ~ implied: close at open. If realized >> implied: close immediately.',
+  };
+
+  // === GATE 1: SKIP CONDITIONS (only skip the truly hopeless) ===
+
+  // Tail risk: max move > 2.5x implied AND low win rate (rare outliers with high WR are OK)
+  if (moveSeverity > 2.5 && winRate < 65) {
     return {
       strategy: 'skip',
-      strategyName: 'Skip — Too Risky',
+      strategyName: 'Skip — Extreme Tail Risk',
       legs: [],
-      reason: `IV crush ratio (${crushRatio.toFixed(2)}x) is too low and win rate (${winRate.toFixed(0)}%) is below threshold. The stock often moves MORE than implied — selling premium here is unprofitable.`,
+      reason: `Max historical move (${maxMove.toFixed(1)}%) is ${moveSeverity.toFixed(1)}x the current implied move (${impliedMove}%) and win rate is only ${winRate.toFixed(0)}%. This stock has a history of extreme earnings reactions. Too dangerous.`,
       confidence: 0,
       riskLevel: 'extreme',
-      crushRatio, winRate, bias: bias.bias, downPct, upPct,
+      bias: bias.bias, ...shared,
+      sizing: null, exitRules: null,
     };
   }
+
+  // Only skip when BOTH IV crush is terrible AND win rate is terrible
+  if (crushRatio < 0.8 && winRate < 50) {
+    return {
+      strategy: 'skip',
+      strategyName: 'Skip — IV Underpriced',
+      legs: [],
+      reason: `IV crush ratio (${crushRatio.toFixed(2)}x) is very low and win rate (${winRate.toFixed(0)}%) is below 50%. The stock regularly moves MORE than implied — selling premium here is a losing proposition.`,
+      confidence: 0,
+      riskLevel: 'extreme',
+      bias: bias.bias, ...shared,
+      sizing: null, exitRules: null,
+    };
+  }
+
+  // === GATE 2+3+4: STRATEGY SELECTION ===
 
   // === STRONG BEARISH BIAS (>=75% down moves) ===
   if (downPct >= 0.75) {
     const callStrike = zones.safe.high;
-    if (crushRatio >= 1.3 && winRate >= 70) {
+    const wingStrike = Math.round((callStrike * 1.03) * 100) / 100;
+
+    // Twisted Sister: naked call + bull put spread (zero downside risk)
+    if (crushRatio >= 1.5 && winRate >= 80 && !forceDefinedRisk) {
+      return {
+        strategy: 'twisted_sister',
+        strategyName: 'Twisted Sister',
+        legs: [
+          { type: 'Sell', qty: 1, instrument: 'Call', strike: callStrike, zone: 'safe' },
+          { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.safe.low, zone: 'safe' },
+          { type: 'Buy', qty: 1, instrument: 'Put', strike: Math.round((zones.safe.low * 0.97) * 100) / 100, zone: 'protection' },
+        ],
+        reason: `Stock drops ${(downPct * 100).toFixed(0)}% of the time (avg -${avgDownMag.toFixed(1)}%). Very high IV crush (${crushRatio.toFixed(2)}x). Twisted Sister = naked call + bull put spread. If total credit > put spread width, you have ZERO downside risk. Collect premium on both sides with protection below.`,
+        confidence: Math.min(95, Math.round(winRate * 0.9 + crushRatio * 8)),
+        riskLevel: 'moderate',
+        bias: 'bearish', ...shared,
+        sizing: calcSizing('excellent'), exitRules,
+      };
+    }
+
+    // Naked call (high crush, manageable price)
+    if (crushRatio >= 1.3 && winRate >= 70 && !forceDefinedRisk) {
       return {
         strategy: 'naked_call',
         strategyName: 'Sell Naked Call',
         legs: [
-          { type: 'Sell Call', strike: callStrike, zone: 'safe' },
+          { type: 'Sell', qty: 1, instrument: 'Call', strike: callStrike, zone: 'safe' },
         ],
-        reason: `Stock drops ${(downPct * 100).toFixed(0)}% of the time after earnings (avg -${avgDownMag.toFixed(1)}%). Strong IV crush (${crushRatio.toFixed(2)}x) supports selling calls only. Skip the put side — the stock is a consistent decliner.`,
+        reason: `Stock drops ${(downPct * 100).toFixed(0)}% of the time after earnings (avg -${avgDownMag.toFixed(1)}%). Strong IV crush (${crushRatio.toFixed(2)}x). Sell calls only — skip the put side, this stock gets hammered after earnings.`,
         confidence: Math.min(95, Math.round(winRate * 0.9 + crushRatio * 10)),
         riskLevel: 'moderate',
-        crushRatio, winRate, bias: 'bearish', downPct, upPct, avgDownMag, avgUpMag,
+        bias: 'bearish', ...shared,
+        sizing: calcSizing('good'), exitRules,
       };
     }
+
+    // Bear call spread (defined risk)
     return {
       strategy: 'bear_call_spread',
       strategyName: 'Bear Call Spread',
       legs: [
-        { type: 'Sell Call', strike: callStrike, zone: 'safe' },
-        { type: 'Buy Call', strike: Math.round((callStrike * 1.03) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Call', strike: callStrike, zone: 'safe' },
+        { type: 'Buy', qty: 1, instrument: 'Call', strike: wingStrike, zone: 'protection' },
       ],
-      reason: `Stock drops ${(downPct * 100).toFixed(0)}% of the time after earnings. Use a call credit spread for defined risk. Avoid selling puts — this stock gets hammered.`,
+      reason: `Stock drops ${(downPct * 100).toFixed(0)}% of the time after earnings. ${forceDefinedRisk && price > 200 ? `Stock is priced at $${price.toFixed(0)} — defined risk required. ` : ''}Call credit spread for defined risk. Avoid selling puts — this stock gets hammered.`,
       confidence: Math.min(90, Math.round(winRate * 0.85 + crushRatio * 8)),
       riskLevel: 'low',
-      crushRatio, winRate, bias: 'bearish', downPct, upPct, avgDownMag, avgUpMag,
+      bias: 'bearish', ...shared,
+      sizing: calcSizing('good'), exitRules,
     };
   }
 
   // === STRONG BULLISH BIAS (>=75% up moves) ===
   if (upPct >= 0.75) {
     const putStrike = zones.safe.low;
-    if (crushRatio >= 1.3 && winRate >= 70) {
+    const wingStrike = Math.round((putStrike * 0.97) * 100) / 100;
+
+    // Jade Lizard: naked put + bear call spread (zero upside risk)
+    if (crushRatio >= 1.5 && winRate >= 80 && !forceDefinedRisk) {
+      return {
+        strategy: 'jade_lizard',
+        strategyName: 'Jade Lizard',
+        legs: [
+          { type: 'Sell', qty: 1, instrument: 'Put', strike: putStrike, zone: 'safe' },
+          { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.safe.high, zone: 'safe' },
+          { type: 'Buy', qty: 1, instrument: 'Call', strike: Math.round((zones.safe.high * 1.03) * 100) / 100, zone: 'protection' },
+        ],
+        reason: `Stock rises ${(upPct * 100).toFixed(0)}% of the time (avg +${avgUpMag.toFixed(1)}%). Very high IV crush (${crushRatio.toFixed(2)}x). Jade Lizard = naked put + bear call spread. If total credit > call spread width, you have ZERO upside risk. Collect premium on both sides with protection above.`,
+        confidence: Math.min(95, Math.round(winRate * 0.9 + crushRatio * 8)),
+        riskLevel: 'moderate',
+        bias: 'bullish', ...shared,
+        sizing: calcSizing('excellent'), exitRules,
+      };
+    }
+
+    // Naked put
+    if (crushRatio >= 1.3 && winRate >= 70 && !forceDefinedRisk) {
       return {
         strategy: 'naked_put',
         strategyName: 'Sell Naked Put',
         legs: [
-          { type: 'Sell Put', strike: putStrike, zone: 'safe' },
+          { type: 'Sell', qty: 1, instrument: 'Put', strike: putStrike, zone: 'safe' },
         ],
-        reason: `Stock rises ${(upPct * 100).toFixed(0)}% of the time after earnings (avg +${avgUpMag.toFixed(1)}%). Strong IV crush (${crushRatio.toFixed(2)}x) supports selling puts only. The stock is a consistent riser after earnings.`,
+        reason: `Stock rises ${(upPct * 100).toFixed(0)}% of the time after earnings (avg +${avgUpMag.toFixed(1)}%). Strong IV crush (${crushRatio.toFixed(2)}x). Sell puts only — the stock is a consistent riser after earnings.`,
         confidence: Math.min(95, Math.round(winRate * 0.9 + crushRatio * 10)),
         riskLevel: 'moderate',
-        crushRatio, winRate, bias: 'bullish', downPct, upPct, avgDownMag, avgUpMag,
+        bias: 'bullish', ...shared,
+        sizing: calcSizing('good'), exitRules,
       };
     }
+
+    // Bull put spread (defined risk)
     return {
       strategy: 'bull_put_spread',
       strategyName: 'Bull Put Spread',
       legs: [
-        { type: 'Sell Put', strike: putStrike, zone: 'safe' },
-        { type: 'Buy Put', strike: Math.round((putStrike * 0.97) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Put', strike: putStrike, zone: 'safe' },
+        { type: 'Buy', qty: 1, instrument: 'Put', strike: wingStrike, zone: 'protection' },
       ],
-      reason: `Stock rises ${(upPct * 100).toFixed(0)}% of the time after earnings. Use a put credit spread for defined risk. Avoid selling calls — the stock tends to rally.`,
+      reason: `Stock rises ${(upPct * 100).toFixed(0)}% of the time after earnings. ${forceDefinedRisk && price > 200 ? `Stock is priced at $${price.toFixed(0)} — defined risk required. ` : ''}Put credit spread for defined risk. Avoid selling calls — the stock tends to rally.`,
       confidence: Math.min(90, Math.round(winRate * 0.85 + crushRatio * 8)),
       riskLevel: 'low',
-      crushRatio, winRate, bias: 'bullish', downPct, upPct, avgDownMag, avgUpMag,
+      bias: 'bullish', ...shared,
+      sizing: calcSizing('good'), exitRules,
     };
   }
 
   // === MODERATE BEARISH (60-74% down) ===
   if (downPct >= 0.6) {
-    if (crushRatio >= 1.3) {
-      // Skewed strangle: closer call, wider put
+    // Twisted Sister for very high IV + moderate bearish
+    if (crushRatio >= 1.5 && winRate >= 80 && !forceDefinedRisk) {
+      return {
+        strategy: 'twisted_sister',
+        strategyName: 'Twisted Sister',
+        legs: [
+          { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.safe.high, zone: 'safe' },
+          { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.conservative.low, zone: 'conservative' },
+          { type: 'Buy', qty: 1, instrument: 'Put', strike: Math.round((zones.conservative.low * 0.97) * 100) / 100, zone: 'protection' },
+        ],
+        reason: `Stock drops ${(downPct * 100).toFixed(0)}% of the time with very high IV crush (${crushRatio.toFixed(2)}x). Twisted Sister: naked call (bearish lean) + protective put spread. If credit > put spread width, zero downside risk.`,
+        confidence: Math.min(90, Math.round(winRate * 0.85 + crushRatio * 8)),
+        riskLevel: 'moderate',
+        bias: 'bearish', ...shared,
+        sizing: calcSizing('good'), exitRules,
+      };
+    }
+
+    // Skewed strangle: closer call, wider put
+    if (crushRatio >= 1.3 && !forceDefinedRisk) {
       return {
         strategy: 'skewed_strangle',
         strategyName: 'Skewed Strangle (Bearish Tilt)',
         legs: [
-          { type: 'Sell Call', strike: zones.aggressive.high, zone: 'aggressive' },
-          { type: 'Sell Put', strike: zones.conservative.low, zone: 'conservative' },
+          { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.aggressive.high, zone: 'aggressive' },
+          { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.conservative.low, zone: 'conservative' },
         ],
         reason: `Stock drops ${(downPct * 100).toFixed(0)}% of the time, but not consistently enough for one leg only. Sell a tighter call (aggressive zone) and wider put (conservative zone) to capture the bearish lean.`,
         confidence: Math.min(85, Math.round(winRate * 0.8 + crushRatio * 8)),
         riskLevel: 'moderate',
-        crushRatio, winRate, bias: 'bearish', downPct, upPct, avgDownMag, avgUpMag,
+        bias: 'bearish', ...shared,
+        sizing: calcSizing('fair'), exitRules,
       };
     }
+
     return {
       strategy: 'bear_call_spread',
       strategyName: 'Bear Call Spread',
       legs: [
-        { type: 'Sell Call', strike: zones.safe.high, zone: 'safe' },
-        { type: 'Buy Call', strike: Math.round((zones.safe.high * 1.03) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.safe.high, zone: 'safe' },
+        { type: 'Buy', qty: 1, instrument: 'Call', strike: Math.round((zones.safe.high * 1.03) * 100) / 100, zone: 'protection' },
       ],
-      reason: `Moderate bearish pattern (${(downPct * 100).toFixed(0)}% down) with modest IV crush. Defined-risk call spread is the safest play.`,
+      reason: `Moderate bearish pattern (${(downPct * 100).toFixed(0)}% down) with ${crushRatio < 1.3 ? 'modest' : 'good'} IV crush. Defined-risk call spread is the safest play.`,
       confidence: Math.min(80, Math.round(winRate * 0.75 + crushRatio * 6)),
       riskLevel: 'low',
-      crushRatio, winRate, bias: 'bearish', downPct, upPct, avgDownMag, avgUpMag,
+      bias: 'bearish', ...shared,
+      sizing: calcSizing('fair'), exitRules,
     };
   }
 
   // === MODERATE BULLISH (60-74% up) ===
   if (upPct >= 0.6) {
-    if (crushRatio >= 1.3) {
+    // Jade Lizard for very high IV + moderate bullish
+    if (crushRatio >= 1.5 && winRate >= 80 && !forceDefinedRisk) {
+      return {
+        strategy: 'jade_lizard',
+        strategyName: 'Jade Lizard',
+        legs: [
+          { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.safe.low, zone: 'safe' },
+          { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.conservative.high, zone: 'conservative' },
+          { type: 'Buy', qty: 1, instrument: 'Call', strike: Math.round((zones.conservative.high * 1.03) * 100) / 100, zone: 'protection' },
+        ],
+        reason: `Stock rises ${(upPct * 100).toFixed(0)}% of the time with very high IV crush (${crushRatio.toFixed(2)}x). Jade Lizard: naked put (bullish lean) + protective call spread. If credit > call spread width, zero upside risk.`,
+        confidence: Math.min(90, Math.round(winRate * 0.85 + crushRatio * 8)),
+        riskLevel: 'moderate',
+        bias: 'bullish', ...shared,
+        sizing: calcSizing('good'), exitRules,
+      };
+    }
+
+    // Skewed strangle
+    if (crushRatio >= 1.3 && !forceDefinedRisk) {
       return {
         strategy: 'skewed_strangle',
         strategyName: 'Skewed Strangle (Bullish Tilt)',
         legs: [
-          { type: 'Sell Put', strike: zones.aggressive.low, zone: 'aggressive' },
-          { type: 'Sell Call', strike: zones.conservative.high, zone: 'conservative' },
+          { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.aggressive.low, zone: 'aggressive' },
+          { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.conservative.high, zone: 'conservative' },
         ],
         reason: `Stock rises ${(upPct * 100).toFixed(0)}% of the time. Sell a tighter put (aggressive zone) and wider call (conservative zone) to capture the bullish lean.`,
         confidence: Math.min(85, Math.round(winRate * 0.8 + crushRatio * 8)),
         riskLevel: 'moderate',
-        crushRatio, winRate, bias: 'bullish', downPct, upPct, avgDownMag, avgUpMag,
+        bias: 'bullish', ...shared,
+        sizing: calcSizing('fair'), exitRules,
       };
     }
+
     return {
       strategy: 'bull_put_spread',
       strategyName: 'Bull Put Spread',
       legs: [
-        { type: 'Sell Put', strike: zones.safe.low, zone: 'safe' },
-        { type: 'Buy Put', strike: Math.round((zones.safe.low * 0.97) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.safe.low, zone: 'safe' },
+        { type: 'Buy', qty: 1, instrument: 'Put', strike: Math.round((zones.safe.low * 0.97) * 100) / 100, zone: 'protection' },
       ],
-      reason: `Moderate bullish pattern (${(upPct * 100).toFixed(0)}% up) with modest IV crush. Defined-risk put spread is the safest play.`,
+      reason: `Moderate bullish pattern (${(upPct * 100).toFixed(0)}% up) with ${crushRatio < 1.3 ? 'modest' : 'good'} IV crush. Defined-risk put spread is the safest play.`,
       confidence: Math.min(80, Math.round(winRate * 0.75 + crushRatio * 6)),
       riskLevel: 'low',
-      crushRatio, winRate, bias: 'bullish', downPct, upPct, avgDownMag, avgUpMag,
+      bias: 'bullish', ...shared,
+      sizing: calcSizing('fair'), exitRules,
     };
   }
 
   // === NEUTRAL DIRECTION — sell both sides ===
 
-  // Excellent setup: Short Strangle (undefined risk, max premium)
-  if (crushRatio >= 1.5 && winRate >= 85 && consistency > 0.3) {
+  // Excellent setup: Short Strangle (max premium, undefined risk)
+  if (crushRatio >= 1.5 && winRate >= 85 && consistency > 0.3 && !forceDefinedRisk) {
     return {
       strategy: 'short_strangle',
       strategyName: 'Short Strangle',
       legs: [
-        { type: 'Sell Call', strike: zones.safe.high, zone: 'safe' },
-        { type: 'Sell Put', strike: zones.safe.low, zone: 'safe' },
+        { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.safe.high, zone: 'safe' },
+        { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.safe.low, zone: 'safe' },
       ],
-      reason: `Excellent IV crush (${crushRatio.toFixed(2)}x) with ${winRate.toFixed(0)}% win rate. IV is massively overpriced vs historical moves. Sell both sides for maximum premium collection.`,
+      reason: `Excellent IV crush (${crushRatio.toFixed(2)}x) with ${winRate.toFixed(0)}% win rate. IV is massively overpriced vs historical moves. Sell both sides at 16-delta for maximum premium. Expected win rate with management: 79-84%.`,
       confidence: Math.min(95, Math.round(winRate * 0.9 + crushRatio * 8)),
       riskLevel: 'moderate',
-      crushRatio, winRate, bias: 'neutral', downPct, upPct, avgDownMag, avgUpMag,
+      bias: 'neutral', ...shared,
+      sizing: calcSizing('excellent'), exitRules,
     };
   }
 
@@ -423,44 +571,69 @@ export function getStrategyRecommendation(stock) {
       strategy: 'iron_condor',
       strategyName: 'Iron Condor',
       legs: [
-        { type: 'Sell Call', strike: zones.safe.high, zone: 'safe' },
-        { type: 'Buy Call', strike: Math.round((zones.safe.high * 1.03) * 100) / 100, zone: 'protection' },
-        { type: 'Sell Put', strike: zones.safe.low, zone: 'safe' },
-        { type: 'Buy Put', strike: Math.round((zones.safe.low * 0.97) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.safe.high, zone: 'safe' },
+        { type: 'Buy', qty: 1, instrument: 'Call', strike: Math.round((zones.safe.high * 1.03) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.safe.low, zone: 'safe' },
+        { type: 'Buy', qty: 1, instrument: 'Put', strike: Math.round((zones.safe.low * 0.97) * 100) / 100, zone: 'protection' },
       ],
-      reason: `Good IV crush (${crushRatio.toFixed(2)}x) with ${winRate.toFixed(0)}% win rate. Iron condor gives you defined risk on both sides. Buy wings 3% beyond your short strikes for protection.`,
+      reason: `Good IV crush (${crushRatio.toFixed(2)}x) with ${winRate.toFixed(0)}% win rate. ${forceDefinedRisk ? (price > 200 ? `$${price.toFixed(0)} stock — iron condor for capital efficiency. ` : 'Inconsistent moves — defined risk required. ') : ''}Buy wings 3% beyond short strikes for protection. Expected win rate: 70-78%.`,
       confidence: Math.min(90, Math.round(winRate * 0.85 + crushRatio * 7)),
       riskLevel: 'low',
-      crushRatio, winRate, bias: 'neutral', downPct, upPct, avgDownMag, avgUpMag,
+      bias: 'neutral', ...shared,
+      sizing: calcSizing('good'), exitRules,
     };
   }
 
   // Fair setup: Wide Iron Condor
-  if (crushRatio >= 1.0 && winRate >= 60) {
+  if (crushRatio >= 1.0 && winRate >= 55) {
     return {
       strategy: 'wide_iron_condor',
       strategyName: 'Wide Iron Condor',
       legs: [
-        { type: 'Sell Call', strike: zones.conservative.high, zone: 'conservative' },
-        { type: 'Buy Call', strike: Math.round((zones.conservative.high * 1.03) * 100) / 100, zone: 'protection' },
-        { type: 'Sell Put', strike: zones.conservative.low, zone: 'conservative' },
-        { type: 'Buy Put', strike: Math.round((zones.conservative.low * 0.97) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Call', strike: zones.conservative.high, zone: 'conservative' },
+        { type: 'Buy', qty: 1, instrument: 'Call', strike: Math.round((zones.conservative.high * 1.03) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Put', strike: zones.conservative.low, zone: 'conservative' },
+        { type: 'Buy', qty: 1, instrument: 'Put', strike: Math.round((zones.conservative.low * 0.97) * 100) / 100, zone: 'protection' },
       ],
-      reason: `Marginal setup — IV crush (${crushRatio.toFixed(2)}x) is modest. Use conservative (wide) strikes and defined risk. Less premium but higher win rate.`,
+      reason: `Modest setup — IV crush (${crushRatio.toFixed(2)}x). Use conservative (wide) strikes beyond max historical move. Less premium but higher win rate. Close at 50% profit.`,
       confidence: Math.min(75, Math.round(winRate * 0.7 + crushRatio * 5)),
       riskLevel: 'low',
-      crushRatio, winRate, bias: 'neutral', downPct, upPct, avgDownMag, avgUpMag,
+      bias: 'neutral', ...shared,
+      sizing: calcSizing('marginal'), exitRules,
     };
   }
 
-  // Everything else: Skip
+  // Marginal setup: Ultra-Wide Iron Condor (still tradeable, just be very conservative)
+  if (winRate >= 45 || crushRatio >= 0.8) {
+    // Even marginal stocks can be played with ultra-wide strikes
+    const ultraWideHigh = Math.round((price * (1 + maxMove * 1.2 / 100)) * 100) / 100;
+    const ultraWideLow = Math.round((price * (1 - maxMove * 1.2 / 100)) * 100) / 100;
+    return {
+      strategy: 'ultra_wide_condor',
+      strategyName: 'Ultra-Wide Iron Condor',
+      legs: [
+        { type: 'Sell', qty: 1, instrument: 'Call', strike: ultraWideHigh, zone: 'beyond-max' },
+        { type: 'Buy', qty: 1, instrument: 'Call', strike: Math.round((ultraWideHigh * 1.03) * 100) / 100, zone: 'protection' },
+        { type: 'Sell', qty: 1, instrument: 'Put', strike: ultraWideLow, zone: 'beyond-max' },
+        { type: 'Buy', qty: 1, instrument: 'Put', strike: Math.round((ultraWideLow * 0.97) * 100) / 100, zone: 'protection' },
+      ],
+      reason: `Marginal setup (crush ${crushRatio.toFixed(2)}x, win rate ${winRate.toFixed(0)}%). Strikes placed 20% beyond the max historical move ($${maxMove.toFixed(1)}%). Very small premium but high probability of profit. Small position size recommended.`,
+      confidence: Math.min(60, Math.round(winRate * 0.6 + crushRatio * 4)),
+      riskLevel: 'low',
+      bias: 'neutral', ...shared,
+      sizing: calcSizing('marginal'), exitRules,
+    };
+  }
+
+  // Only truly hopeless setups get skipped
   return {
     strategy: 'skip',
-    strategyName: 'Skip — Unfavorable Setup',
+    strategyName: 'Skip — No Edge',
     legs: [],
-    reason: `IV crush ratio (${crushRatio.toFixed(2)}x) and win rate (${winRate.toFixed(0)}%) are below profitable thresholds. The risk/reward is not in your favor. Wait for a better setup.`,
+    reason: `Win rate (${winRate.toFixed(0)}%) is below 45% and IV crush (${crushRatio.toFixed(2)}x) is below 0.8. There is no statistical edge here — the stock's actual moves consistently exceed what options price in.`,
     confidence: 0,
     riskLevel: 'high',
-    crushRatio, winRate, bias: bias.bias, downPct, upPct, avgDownMag, avgUpMag,
+    bias: bias.bias, ...shared,
+    sizing: null, exitRules: null,
   };
 }
