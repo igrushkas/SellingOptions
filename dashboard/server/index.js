@@ -4,6 +4,8 @@ import cors from 'cors';
 import { scrapeEarningsCalendar, getTodaysPlays } from './services/earningsWhispers.js';
 import { getOptionsChain } from './services/schwabApi.js';
 import { analyzeWithAI } from './services/openai.js';
+import { fetchEarningsData, fetchIVSummary, fetchImpliedEarningsMove, buildHistoricalMoves, calcOratsIVCrushStats } from './services/orats.js';
+import { fetchHistoricalOptions, fetchImpliedMove as avImpliedMove } from './services/alphaVantage.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -70,8 +72,96 @@ app.post('/api/analyze', async (req, res) => {
   }
 });
 
+// ORATS: historical earnings with actual stock price moves + IV crush stats
+app.get('/api/orats/:ticker', async (req, res) => {
+  try {
+    const { ticker } = req.params;
+    if (!process.env.ORATS_API_TOKEN) {
+      return res.status(400).json({
+        error: 'ORATS not configured',
+        setup: 'Add ORATS_API_TOKEN to .env — Get 14-day trial at https://orats.com/data-api',
+      });
+    }
+
+    const [earnings, ivSummary, impliedMove] = await Promise.all([
+      fetchEarningsData(ticker),
+      fetchIVSummary(ticker),
+      fetchImpliedEarningsMove(ticker),
+    ]);
+
+    const historicalMoves = earnings ? buildHistoricalMoves(earnings, 20) : [];
+    const crushStats = earnings ? calcOratsIVCrushStats(earnings) : null;
+
+    res.json({
+      ticker,
+      source: 'orats',
+      earnings: earnings?.earnings || [],
+      historicalMoves,
+      crushStats,
+      ivSummary,
+      impliedMove: impliedMove?.impliedMove || null,
+      nextEarningsDate: impliedMove?.nextEarningsDate || null,
+      daysToEarnings: impliedMove?.daysToEarnings || null,
+    });
+  } catch (error) {
+    console.error('ORATS fetch error:', error.message);
+    res.status(500).json({ error: 'ORATS fetch failed', message: error.message });
+  }
+});
+
+// Alpha Vantage: historical options chain with IV + Greeks
+app.get('/api/alpha-vantage/options/:ticker', async (req, res) => {
+  try {
+    const { ticker } = req.params;
+    const { date } = req.query;
+
+    if (!process.env.ALPHA_VANTAGE_API_KEY) {
+      return res.status(400).json({
+        error: 'Alpha Vantage not configured',
+        setup: 'Add ALPHA_VANTAGE_API_KEY to .env — Get free key at https://www.alphavantage.co/support/#api-key',
+      });
+    }
+
+    const data = date
+      ? await fetchHistoricalOptions(ticker, date)
+      : await avImpliedMove(ticker);
+
+    if (!data) {
+      return res.status(404).json({ error: `No options data for ${ticker}` });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Alpha Vantage fetch error:', error.message);
+    res.status(500).json({ error: 'Alpha Vantage fetch failed', message: error.message });
+  }
+});
+
+// Data sources status — shows which APIs are configured
+app.get('/api/sources', (req, res) => {
+  res.json({
+    finnhub: !!process.env.FINNHUB_API_KEY,
+    fmp: !!process.env.FMP_API_KEY,
+    orats: !!process.env.ORATS_API_TOKEN,
+    alphaVantage: !!process.env.ALPHA_VANTAGE_API_KEY,
+    schwab: !!(process.env.SCHWAB_CLIENT_ID && process.env.SCHWAB_CLIENT_SECRET),
+    openai: !!process.env.OPENAI_API_KEY,
+  });
+});
+
 app.listen(PORT, () => {
+  const orats = process.env.ORATS_API_TOKEN ? '✓' : '✗';
+  const av = process.env.ALPHA_VANTAGE_API_KEY ? '✓' : '✗';
+  const finnhub = process.env.FINNHUB_API_KEY ? '✓' : '✗';
+  const schwab = (process.env.SCHWAB_CLIENT_ID && process.env.SCHWAB_CLIENT_SECRET) ? '✓' : '✗';
+
   console.log(`\n  Volatility Crusher API Server`);
   console.log(`  Running on http://localhost:${PORT}`);
-  console.log(`  Health: http://localhost:${PORT}/api/health\n`);
+  console.log(`  Health: http://localhost:${PORT}/api/health`);
+  console.log(`\n  Data Sources:`);
+  console.log(`    [${finnhub}] Finnhub     — Earnings calendar + EPS surprises`);
+  console.log(`    [${orats}] ORATS        — IV crush analytics + actual earnings moves`);
+  console.log(`    [${av}] Alpha Vantage — Historical options with IV + Greeks`);
+  console.log(`    [${schwab}] Schwab       — Live options chains`);
+  console.log(`    [✓] Yahoo Finance — Stock quotes + options fallback (free)\n`);
 });

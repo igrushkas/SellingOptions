@@ -77,8 +77,10 @@ export default function EarningsTable({ stocks, selectedStock, onSelectStock }) 
                     <span className="text-neon-orange font-semibold">
                       ±{stock.impliedMove}%
                     </span>
-                    <div className="text-xs text-gray-500">
-                      ±{formatCurrency(stock.price * stock.impliedMove / 100)}
+                    <div className="flex items-center justify-end gap-1 text-xs text-gray-500">
+                      <span>±{formatCurrency(stock.price * stock.impliedMove / 100)}</span>
+                      {stock.ivSource === 'orats' && <span className="text-[8px] text-neon-purple font-bold">ORATS</span>}
+                      {stock.ivSource === 'alpha_vantage' && <span className="text-[8px] text-neon-green font-bold">AV</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">

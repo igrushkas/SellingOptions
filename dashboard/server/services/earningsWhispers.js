@@ -1,7 +1,12 @@
 /**
  * Earnings Data Orchestrator
  *
- * Flow: Finnhub (primary) → FMP (fallback) → Error (no mock)
+ * Data source priority for each data type:
+ *
+ * Implied Move:  ORATS (best) → Alpha Vantage → Yahoo Finance → 0
+ * Historical Moves: ORATS (actual stock moves) → Finnhub (EPS surprises as fallback)
+ * Earnings Calendar: Finnhub (primary) → FMP (fallback)
+ * Stock Quote: Yahoo Finance (free, no key)
  *
  * On Friday: fetches Fri AMC through Mon BMO (full weekend window).
  * Filters out penny stocks (< $5).
@@ -12,6 +17,8 @@ import https from 'https';
 import { fetchEarningsCalendar as finnhubCalendar, fetchEarningsSurprises } from './finnhub.js';
 import { fetchEarningsCalendar as fmpCalendar } from './fmp.js';
 import { fetchImpliedMove as yahooImpliedMove } from './yahooOptions.js';
+import { fetchEarningsData, fetchImpliedEarningsMove, buildHistoricalMoves, calcOratsIVCrushStats } from './orats.js';
+import { fetchImpliedMove as alphaVantageImpliedMove } from './alphaVantage.js';
 
 const cache = {};
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -21,6 +28,8 @@ function getKeys() {
   return {
     finnhub: process.env.FINNHUB_API_KEY || '',
     fmp: process.env.FMP_API_KEY || '',
+    orats: process.env.ORATS_API_TOKEN || '',
+    alphaVantage: process.env.ALPHA_VANTAGE_API_KEY || '',
   };
 }
 
@@ -158,22 +167,84 @@ async function enrichAll(rawEarnings, keys) {
 async function enrichTicker(entry, keys) {
   const { ticker, date, timing, epsEstimate, epsPrior, revenueEstimate, revenueActual, quarter, year } = entry;
 
-  const [yahooData, historicalMoves] = await Promise.all([
+  // Parallel fetch: quote + historical data from all available sources
+  const fetchPromises = [
     fetchYahooQuote(ticker),
     keys.finnhub ? fetchEarningsSurprises(keys.finnhub, ticker, 40) : Promise.resolve([]),
-  ]);
+  ];
+
+  // ORATS: historical earnings with actual stock price moves (much better than EPS surprises)
+  if (keys.orats) {
+    fetchPromises.push(fetchEarningsData(ticker));
+    fetchPromises.push(fetchImpliedEarningsMove(ticker));
+  } else {
+    fetchPromises.push(Promise.resolve(null));
+    fetchPromises.push(Promise.resolve(null));
+  }
+
+  const [yahooData, finnhubSurprises, oratsEarnings, oratsImplied] = await Promise.all(fetchPromises);
 
   const price = yahooData.price || 0;
 
-  // Fetch implied move from Yahoo Finance options chain (free, no API key)
+  // ── Historical Moves: ORATS (actual stock moves) > Finnhub (EPS surprises) ──
+  let historicalMoves;
+  let historySource = 'none';
+
+  if (oratsEarnings) {
+    historicalMoves = buildHistoricalMoves(oratsEarnings, 20);
+    historySource = 'orats';
+    console.log(`[Orchestrator] ${ticker}: ORATS historical moves (${historicalMoves.length} quarters)`);
+  }
+
+  if (!historicalMoves || historicalMoves.length === 0) {
+    historicalMoves = finnhubSurprises || [];
+    historySource = historicalMoves.length > 0 ? 'finnhub' : 'none';
+  }
+
+  // ── Implied Move: ORATS > Alpha Vantage > Yahoo Finance ──
   let impliedMove = 0;
   let optionsData = null;
-  if (price > 0) {
-    optionsData = await yahooImpliedMove(ticker, price);
-    if (optionsData) {
-      impliedMove = optionsData.impliedMove;
+  let ivSource = 'none';
+
+  // 1. ORATS implied earnings move (best: strips non-earnings IV)
+  if (oratsImplied?.impliedMove) {
+    impliedMove = oratsImplied.impliedMove;
+    ivSource = 'orats';
+    optionsData = oratsImplied;
+    console.log(`[Orchestrator] ${ticker}: ORATS implied move ±${impliedMove}%`);
+  }
+
+  // 2. Alpha Vantage (ATM straddle calculation)
+  if (impliedMove === 0 && keys.alphaVantage && price > 0) {
+    try {
+      const avData = await alphaVantageImpliedMove(ticker, price);
+      if (avData?.impliedMove) {
+        impliedMove = avData.impliedMove;
+        ivSource = 'alpha_vantage';
+        optionsData = avData;
+        console.log(`[Orchestrator] ${ticker}: Alpha Vantage implied move ±${impliedMove}%`);
+      }
+    } catch {
+      // Alpha Vantage failed, try Yahoo
     }
   }
+
+  // 3. Yahoo Finance (free fallback)
+  if (impliedMove === 0 && price > 0) {
+    try {
+      const yahooOpts = await yahooImpliedMove(ticker, price);
+      if (yahooOpts?.impliedMove) {
+        impliedMove = yahooOpts.impliedMove;
+        ivSource = 'yahoo';
+        optionsData = yahooOpts;
+      }
+    } catch {
+      // Yahoo failed too
+    }
+  }
+
+  // ── ORATS IV crush stats (bonus data when available) ──
+  const ivCrushStats = oratsEarnings ? calcOratsIVCrushStats(oratsEarnings) : null;
 
   return {
     id: ticker,
@@ -187,6 +258,13 @@ async function enrichTicker(entry, keys) {
     hasWeeklyOptions: !!optionsData,
     impliedMove,
     historicalMoves,
+    // Data source tracking
+    ivSource,
+    historySource,
+    // ORATS bonus data (null if ORATS not configured)
+    ivCrushStats,
+    oratsImpliedMove: oratsImplied?.impliedMove || null,
+    daysToEarnings: oratsImplied?.daysToEarnings || null,
     epsEstimate: epsEstimate ?? null,
     epsPrior: epsPrior ?? null,
     revenueEstimate: revenueEstimate ? formatRevenue(revenueEstimate) : null,

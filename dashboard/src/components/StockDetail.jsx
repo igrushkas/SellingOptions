@@ -267,6 +267,54 @@ function StatsRow({ stock }) {
   );
 }
 
+function OratsInsights({ stock }) {
+  if (!stock.ivCrushStats) return null;
+
+  const stats = stock.ivCrushStats;
+  return (
+    <div className="glass-card p-4 border-l-2 border-l-neon-purple">
+      <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-purple/20 text-neon-purple font-bold">ORATS</span>
+        IV Crush Analytics
+      </h4>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div>
+          <span className="text-xs text-gray-400">Earnings Analyzed</span>
+          <div className="text-lg font-bold text-white">{stats.totalEarnings}</div>
+        </div>
+        <div>
+          <span className="text-xs text-gray-400">IV Overstated</span>
+          <div className={`text-lg font-bold ${stats.winRate >= 70 ? 'text-neon-green' : 'text-neon-orange'}`}>
+            {stats.winRate}%
+          </div>
+          <div className="text-[10px] text-gray-500">{stats.timesImpliedOverstated}/{stats.totalEarnings} times</div>
+        </div>
+        <div>
+          <span className="text-xs text-gray-400">Avg IV Crush</span>
+          <div className={`text-lg font-bold ${stats.avgCrushPct > 0 ? 'text-neon-green' : 'text-neon-red'}`}>
+            {stats.avgCrushPct > 0 ? '+' : ''}{stats.avgCrushPct}%
+          </div>
+        </div>
+        <div>
+          <span className="text-xs text-gray-400">Avg Implied Move</span>
+          <div className="text-lg font-bold text-neon-orange">±{stats.avgImpliedMove}%</div>
+        </div>
+        <div>
+          <span className="text-xs text-gray-400">Avg Actual Move</span>
+          <div className="text-lg font-bold text-white">±{stats.avgActualMove}%</div>
+        </div>
+        {stock.historySource === 'orats' && (
+          <div>
+            <span className="text-xs text-gray-400">Data Source</span>
+            <div className="text-xs text-neon-purple font-semibold mt-1">Actual stock price moves</div>
+            <div className="text-[10px] text-gray-500">Not EPS surprise %</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function StockDetail({ stock, onClose }) {
   return (
     <div className="space-y-4">
@@ -284,6 +332,15 @@ export default function StockDetail({ stock, onClose }) {
                 <span className="text-xs px-2 py-0.5 rounded-full bg-neon-orange/15 text-neon-orange border border-neon-orange/30">
                   ±{stock.impliedMove}% Expected
                 </span>
+                {stock.ivSource && stock.ivSource !== 'none' && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                    stock.ivSource === 'orats' ? 'bg-neon-purple/15 text-neon-purple border border-neon-purple/30' :
+                    stock.ivSource === 'alpha_vantage' ? 'bg-neon-green/15 text-neon-green border border-neon-green/30' :
+                    'bg-gray-700 text-gray-400'
+                  }`}>
+                    {stock.ivSource === 'orats' ? 'ORATS' : stock.ivSource === 'alpha_vantage' ? 'Alpha Vantage' : stock.ivSource}
+                  </span>
+                )}
                 <span className="text-xs text-gray-500">
                   {stock.timing === 'BMO' ? 'Before Market Open' : 'After Market Close'}
                 </span>
@@ -297,9 +354,19 @@ export default function StockDetail({ stock, onClose }) {
         <StatsRow stock={stock} />
       </div>
 
+      {/* ORATS IV Crush Analytics (only shows when ORATS data is available) */}
+      <OratsInsights stock={stock} />
+
       {/* Charts */}
       <div className="glass-card p-4">
-        <h4 className="text-sm font-semibold text-white mb-2">Historical Earnings Moves (5 Years)</h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-semibold text-white">Historical Earnings Moves (5 Years)</h4>
+          {stock.historySource === 'orats' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-purple/15 text-neon-purple font-bold">
+              Actual stock moves via ORATS
+            </span>
+          )}
+        </div>
         <p className="text-xs text-gray-500 mb-3">
           Orange dashed lines = current implied move (±{stock.impliedMove}%). Bars outside = would have been a loss.
         </p>

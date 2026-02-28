@@ -8,7 +8,7 @@ import TodayPlays from './components/TodayPlays';
 import TradeTracker from './components/TradeTracker';
 import { subscribeTrades } from './services/tradeService';
 import { fetchTodaysPlaysDirect } from './services/earningsApi';
-import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff } from 'lucide-react';
+import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database } from 'lucide-react';
 import './index.css';
 
 const API_BASE = '/api';
@@ -27,6 +27,7 @@ function App() {
   const [liveAMC, setLiveAMC] = useState([]);
   const [liveBMO, setLiveBMO] = useState([]);
   const [dataSource, setDataSource] = useState('loading');
+  const [dataSources, setDataSources] = useState(null); // { finnhub, orats, alphaVantage, ... }
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [amcLabel, setAmcLabel] = useState('');
@@ -47,14 +48,29 @@ function App() {
 
     // 1. Try backend server (local dev)
     try {
-      const res = await fetch(`${API_BASE}/plays/today`);
-      if (res.ok) {
-        const data = await res.json();
+      const [playsRes, sourcesRes] = await Promise.all([
+        fetch(`${API_BASE}/plays/today`),
+        fetch(`${API_BASE}/sources`).catch(() => null),
+      ]);
+
+      // Capture which data sources are configured
+      if (sourcesRes?.ok) {
+        const sources = await sourcesRes.json();
+        setDataSources(sources);
+      }
+
+      if (playsRes.ok) {
+        const data = await playsRes.json();
         setLiveAMC(data.amcEarnings || []);
         setLiveBMO(data.bmoEarnings || []);
         setAmcLabel(data.amcLabel || '');
         setBmoLabel(data.bmoLabel || '');
-        const src = data.sources?.amc || data.sources?.bmo || 'finnhub';
+
+        // Detect best data source from enriched stock data
+        const allStocks = [...(data.amcEarnings || []), ...(data.bmoEarnings || [])];
+        const hasOrats = allStocks.some(s => s.ivSource === 'orats' || s.historySource === 'orats');
+        const hasAV = allStocks.some(s => s.ivSource === 'alpha_vantage');
+        const src = hasOrats ? 'orats' : hasAV ? 'alpha_vantage' : (data.sources?.amc || data.sources?.bmo || 'finnhub');
         setDataSource(src === 'error' ? 'offline' : src);
         setLoading(false);
         return;
@@ -118,6 +134,8 @@ function App() {
   ];
 
   const sourceBadge = {
+    orats: { label: 'ORATS', cls: 'bg-neon-purple/15 text-neon-purple border-neon-purple/30' },
+    alpha_vantage: { label: 'ALPHA V', cls: 'bg-neon-green/15 text-neon-green border-neon-green/30' },
     finnhub: { label: 'FINNHUB', cls: 'bg-neon-green/15 text-neon-green border-neon-green/30' },
     fmp: { label: 'FMP', cls: 'bg-neon-blue/15 text-neon-blue border-neon-blue/30' },
     offline: { label: 'OFFLINE', cls: 'bg-neon-red/15 text-neon-red border-neon-red/30' },
@@ -156,6 +174,14 @@ function App() {
           ))}
 
           <div className="ml-auto flex items-center gap-3">
+            {dataSources && (
+              <div className="flex items-center gap-1.5" title="Active data sources">
+                <Database className="w-3 h-3 text-gray-500" />
+                {dataSources.orats && <span className="text-[9px] px-1.5 py-0.5 rounded bg-neon-purple/10 text-neon-purple font-semibold">ORATS</span>}
+                {dataSources.alphaVantage && <span className="text-[9px] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green font-semibold">AV</span>}
+                {dataSources.finnhub && <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 font-semibold">FH</span>}
+              </div>
+            )}
             <span className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold ${badge.cls}`}>
               {badge.label}
             </span>

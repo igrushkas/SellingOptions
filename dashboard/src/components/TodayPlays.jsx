@@ -35,7 +35,10 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
 
       <div className="grid grid-cols-3 gap-3 text-xs mb-3">
         <div>
-          <span className="text-gray-500">Implied</span>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">Implied</span>
+            {stock.ivSource === 'orats' && <span className="text-[8px] text-neon-purple font-bold">ORATS</span>}
+          </div>
           <div className="text-neon-orange font-bold">±{stock.impliedMove}%</div>
         </div>
         <div>
