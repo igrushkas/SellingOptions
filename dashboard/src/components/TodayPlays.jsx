@@ -97,7 +97,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
           </span>
         </div>
         {tonightAMC.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
             {tonightAMC.map(stock => (
               <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
             ))}
@@ -122,7 +122,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
           </span>
         </div>
         {tomorrowBMO.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
             {tomorrowBMO.map(stock => (
               <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
             ))}

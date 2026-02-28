@@ -74,12 +74,20 @@ export async function fetchTodaysPlaysDirect() {
   const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-  // AMC date: use current trading day (on weekends, look back to Friday)
-  const amcDate = getCurrentTradingDay(now);
-  const amcDateStr = fmt(amcDate);
+  let amcDate, bmoDate;
 
-  // BMO date: next trading day (on Fri/Sat/Sun → Monday)
-  const bmoDate = getNextTradingDay(amcDate);
+  if (isWeekend) {
+    // On weekends: look forward to Monday (both BMO and AMC)
+    const monday = getNextTradingDay(now);
+    bmoDate = monday;
+    amcDate = new Date(monday); // Monday evening
+  } else {
+    // Weekday: AMC = today evening, BMO = next trading day morning
+    amcDate = new Date(now);
+    bmoDate = getNextTradingDay(now);
+  }
+
+  const amcDateStr = fmt(amcDate);
   const bmoDateStr = fmt(bmoDate);
 
   // Query range covers both AMC and BMO dates
@@ -218,6 +226,8 @@ async function enrichSingle(entry, timing, keys) {
     keys.finnhub ? fetchSurprises(ticker, keys.finnhub) : Promise.resolve([]),
   ]);
 
+  const rawCap = profile?.marketCapRaw || 0;
+
   return {
     id: ticker,
     ticker,
@@ -227,7 +237,7 @@ async function enrichSingle(entry, timing, keys) {
     sector: profile?.sector || '',
     date: entry.date,
     timing,
-    hasWeeklyOptions: true,
+    hasWeeklyOptions: rawCap >= 2e9, // Stocks with weeklies generally have market cap > $2B
     impliedMove: 0, // Options IV only available via backend (Yahoo Finance, no CORS)
     historicalMoves,
     // Finnhub calendar fields
@@ -257,6 +267,7 @@ async function fetchProfile(ticker, apiKey) {
       name: prof.name || ticker,
       price: quote.c || 0,
       marketCap: prof.marketCapitalization ? formatMarketCap(prof.marketCapitalization * 1e6) : '',
+      marketCapRaw: prof.marketCapitalization ? prof.marketCapitalization * 1e6 : 0,
       sector: prof.finnhubIndustry || '',
     };
   } catch {

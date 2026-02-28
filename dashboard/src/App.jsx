@@ -15,7 +15,10 @@ const API_BASE = '/api';
 
 function App() {
   const [selectedStock, setSelectedStock] = useState(null);
-  const [dateFilter, setDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
+  const [dateFilter, setDateFilter] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [showWeeklyOnly, setShowWeeklyOnly] = useState(true);
   const [activeTab, setActiveTab] = useState('today');
   const [addTradeStock, setAddTradeStock] = useState(null);
@@ -90,6 +93,14 @@ function App() {
 
   const allEarnings = useMemo(() => {
     let data = [...liveAMC, ...liveBMO];
+
+    // Filter out stocks with no useful data (implied move 0 AND no historical moves)
+    data = data.filter(e => {
+      const hasImplied = e.impliedMove > 0;
+      const hasHistory = e.historicalMoves && e.historicalMoves.length > 0;
+      return hasImplied || hasHistory;
+    });
+
     if (showWeeklyOnly) {
       data = data.filter(e => e.hasWeeklyOptions);
     }
@@ -124,7 +135,7 @@ function App() {
         totalStocks={allEarnings.length}
       />
 
-      <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pb-12">
+      <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-6 pb-12">
         <KPICards earnings={allEarnings} />
 
         {/* Tab Navigation */}

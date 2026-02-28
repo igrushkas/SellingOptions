@@ -94,13 +94,22 @@ export async function scrapeEarningsCalendar(fromDate, toDate, timing) {
 export async function getTodaysPlays() {
   const now = new Date();
   const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-  // AMC: current trading day (on weekends, look back to Friday)
-  const amcDate = getCurrentTradingDay(now);
+  let amcDate, bmoDate;
+
+  if (isWeekend) {
+    // On weekends: look forward to Monday (both BMO and AMC)
+    const monday = getNextTradingDay(now);
+    bmoDate = monday;
+    amcDate = new Date(monday); // Monday evening
+  } else {
+    // Weekday: AMC = today evening, BMO = next trading day morning
+    amcDate = new Date(now);
+    bmoDate = getNextTradingDay(now);
+  }
+
   const amcDateStr = fmt(amcDate);
-
-  // BMO: next trading day (Fri/Sat/Sun → Monday)
-  const bmoDate = getNextTradingDay(amcDate);
   const bmoDateStr = fmt(bmoDate);
 
   console.log(`[Orchestrator] AMC=${amcDateStr} (${getDayName(amcDateStr)}), BMO=${bmoDateStr} (${getDayName(bmoDateStr)})`);

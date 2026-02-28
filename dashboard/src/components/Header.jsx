@@ -3,7 +3,7 @@ import { TrendingUp, Filter, Calendar, Zap } from 'lucide-react';
 export default function Header({ dateFilter, setDateFilter, showWeeklyOnly, setShowWeeklyOnly, totalStocks }) {
   return (
     <header className="sticky top-0 z-50 bg-dark-900/80 backdrop-blur-xl border-b border-glass-border">
-      <div className="max-w-[1800px] mx-auto px-4 py-3">
+      <div className="max-w-[1400px] mx-auto px-8 lg:px-12 py-4">
         <div className="flex items-center justify-between">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
