@@ -1,4 +1,5 @@
-import { X, TrendingUp, TrendingDown, Shield, Target, AlertCircle, Newspaper } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, TrendingUp, TrendingDown, Shield, Target, AlertCircle, Newspaper, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, AreaChart, Area } from 'recharts';
 import {
   calcSafeZone,
@@ -315,6 +316,146 @@ function OratsInsights({ stock }) {
   );
 }
 
+function TastytradeMetrics({ ticker }) {
+  const [metrics, setMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+
+    fetch(`/api/tastytrade/metrics?symbols=${encodeURIComponent(ticker)}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Not configured');
+        return res.json();
+      })
+      .then(data => {
+        if (!cancelled && data.metrics?.[0]) {
+          setMetrics(data.metrics[0]);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [ticker]);
+
+  if (loading) return null;
+  if (error || !metrics) return null;
+
+  const ivRank = metrics.twIvRank ?? metrics.tosIvRank ?? metrics.ivRank;
+  const ivPct = metrics.ivPercentile;
+  const ivRankNum = ivRank != null ? parseFloat(ivRank) : null;
+  const ivPctNum = ivPct != null ? parseFloat(ivPct) : null;
+
+  const ivColor = (val) => {
+    if (val == null) return 'text-gray-400';
+    if (val >= 50) return 'text-neon-green';
+    if (val >= 30) return 'text-neon-yellow';
+    return 'text-neon-red';
+  };
+
+  return (
+    <div className="glass-card p-4 border-l-2 border-l-neon-blue">
+      <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-blue/20 text-neon-blue font-bold">TASTYTRADE</span>
+        <Activity className="w-3.5 h-3.5 text-neon-blue" />
+        IV Metrics
+      </h4>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {ivRankNum != null && (
+          <div>
+            <span className="text-xs text-gray-400">IV Rank</span>
+            <div className={`text-lg font-bold ${ivColor(ivRankNum)}`}>
+              {ivRankNum.toFixed(1)}%
+            </div>
+            <div className="text-[10px] text-gray-500">{ivRankNum >= 50 ? 'High — good for selling' : 'Low — less premium'}</div>
+          </div>
+        )}
+        {ivPctNum != null && (
+          <div>
+            <span className="text-xs text-gray-400">IV Percentile</span>
+            <div className={`text-lg font-bold ${ivColor(ivPctNum)}`}>
+              {ivPctNum.toFixed(1)}%
+            </div>
+          </div>
+        )}
+        {metrics.iv30Day && (
+          <div>
+            <span className="text-xs text-gray-400">IV (30-day)</span>
+            <div className="text-lg font-bold text-white">
+              {(parseFloat(metrics.iv30Day) * 100).toFixed(1)}%
+            </div>
+          </div>
+        )}
+        {metrics.hv30Day && (
+          <div>
+            <span className="text-xs text-gray-400">HV (30-day)</span>
+            <div className="text-lg font-bold text-gray-300">
+              {(parseFloat(metrics.hv30Day) * 100).toFixed(1)}%
+            </div>
+          </div>
+        )}
+        {metrics.ivHvDiff30Day && (
+          <div>
+            <span className="text-xs text-gray-400">IV-HV Spread</span>
+            <div className={`text-lg font-bold ${parseFloat(metrics.ivHvDiff30Day) > 0 ? 'text-neon-green' : 'text-neon-red'}`}>
+              {parseFloat(metrics.ivHvDiff30Day) > 0 ? '+' : ''}{(parseFloat(metrics.ivHvDiff30Day) * 100).toFixed(1)}%
+            </div>
+            <div className="text-[10px] text-gray-500">{parseFloat(metrics.ivHvDiff30Day) > 0 ? 'IV elevated vs realized' : 'IV below realized'}</div>
+          </div>
+        )}
+        {metrics.liquidityRating != null && (
+          <div>
+            <span className="text-xs text-gray-400">Liquidity</span>
+            <div className={`text-lg font-bold ${metrics.liquidityRating >= 3 ? 'text-neon-green' : metrics.liquidityRating >= 2 ? 'text-neon-yellow' : 'text-neon-red'}`}>
+              {metrics.liquidityRating}/5
+            </div>
+          </div>
+        )}
+        {metrics.beta && (
+          <div>
+            <span className="text-xs text-gray-400">Beta</span>
+            <div className="text-lg font-bold text-white">{parseFloat(metrics.beta).toFixed(2)}</div>
+          </div>
+        )}
+        {metrics.earnings?.expectedReportDate && (
+          <div>
+            <span className="text-xs text-gray-400">Earnings Date</span>
+            <div className="text-lg font-bold text-neon-orange">{metrics.earnings.expectedReportDate}</div>
+            {metrics.earnings.timeOfDay && (
+              <div className="text-[10px] text-gray-500">{metrics.earnings.timeOfDay}</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Per-expiration IV breakdown */}
+      {metrics.expirationIVs?.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-glass-border">
+          <span className="text-xs text-gray-400 block mb-2">IV by Expiration</span>
+          <div className="flex flex-wrap gap-2">
+            {metrics.expirationIVs.slice(0, 6).map((exp, i) => (
+              <div key={i} className="bg-dark-700/50 rounded-lg px-2.5 py-1.5 text-center">
+                <div className="text-[10px] text-gray-500">{exp.expirationDate}</div>
+                <div className="text-xs font-semibold text-white">
+                  {exp.impliedVolatility ? `${(parseFloat(exp.impliedVolatility) * 100).toFixed(1)}%` : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StockDetail({ stock, onClose }) {
   return (
     <div className="space-y-4">
@@ -353,6 +494,9 @@ export default function StockDetail({ stock, onClose }) {
         </div>
         <StatsRow stock={stock} />
       </div>
+
+      {/* Tastytrade IV Metrics (shows when Tastytrade is configured) */}
+      <TastytradeMetrics ticker={stock.ticker} />
 
       {/* ORATS IV Crush Analytics (only shows when ORATS data is available) */}
       <OratsInsights stock={stock} />

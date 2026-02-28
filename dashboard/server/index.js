@@ -5,6 +5,7 @@ import { scrapeEarningsCalendar, getTodaysPlays } from './services/earningsWhisp
 import { analyzeWithAI } from './services/openai.js';
 import { fetchEarningsData, fetchIVSummary, fetchImpliedEarningsMove, buildHistoricalMoves, calcOratsIVCrushStats } from './services/orats.js';
 import { fetchHistoricalOptions, fetchImpliedMove as avImpliedMove } from './services/alphaVantage.js';
+import { fetchMarketMetrics, fetchOptionChain, isTastytradeConfigured } from './services/tastytrade.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -123,6 +124,45 @@ app.get('/api/alpha-vantage/options/:ticker', async (req, res) => {
   }
 });
 
+// Tastytrade: market metrics (IV rank, IV percentile, per-expiration IV)
+app.get('/api/tastytrade/metrics', async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    if (!isTastytradeConfigured()) {
+      return res.status(400).json({
+        error: 'Tastytrade not configured',
+        setup: 'Add TASTYTRADE_CLIENT_SECRET and TASTYTRADE_REFRESH_TOKEN to .env',
+      });
+    }
+    if (!symbols) {
+      return res.status(400).json({ error: 'symbols query parameter required (comma-separated)' });
+    }
+    const metrics = await fetchMarketMetrics(symbols);
+    res.json({ source: 'tastytrade', metrics });
+  } catch (error) {
+    console.error('Tastytrade metrics error:', error.message);
+    res.status(500).json({ error: 'Tastytrade metrics failed', message: error.message });
+  }
+});
+
+// Tastytrade: option chain for a ticker
+app.get('/api/tastytrade/chain/:ticker', async (req, res) => {
+  try {
+    const { ticker } = req.params;
+    if (!isTastytradeConfigured()) {
+      return res.status(400).json({
+        error: 'Tastytrade not configured',
+        setup: 'Add TASTYTRADE_CLIENT_SECRET and TASTYTRADE_REFRESH_TOKEN to .env',
+      });
+    }
+    const chain = await fetchOptionChain(ticker);
+    res.json({ source: 'tastytrade', ticker, expirations: chain });
+  } catch (error) {
+    console.error('Tastytrade chain error:', error.message);
+    res.status(500).json({ error: 'Tastytrade chain failed', message: error.message });
+  }
+});
+
 // Data sources status — shows which APIs are configured
 app.get('/api/sources', (req, res) => {
   res.json({
@@ -130,6 +170,7 @@ app.get('/api/sources', (req, res) => {
     fmp: !!process.env.FMP_API_KEY,
     orats: !!process.env.ORATS_API_TOKEN,
     alphaVantage: !!process.env.ALPHA_VANTAGE_API_KEY,
+    tastytrade: isTastytradeConfigured(),
     openai: !!process.env.OPENAI_API_KEY,
   });
 });
@@ -138,12 +179,14 @@ app.listen(PORT, () => {
   const orats = process.env.ORATS_API_TOKEN ? '✓' : '✗';
   const av = process.env.ALPHA_VANTAGE_API_KEY ? '✓' : '✗';
   const finnhub = process.env.FINNHUB_API_KEY ? '✓' : '✗';
+  const tasty = isTastytradeConfigured() ? '✓' : '✗';
 
   console.log(`\n  Volatility Crusher API Server`);
   console.log(`  Running on http://localhost:${PORT}`);
   console.log(`  Health: http://localhost:${PORT}/api/health`);
   console.log(`\n  Data Sources:`);
-  console.log(`    [${finnhub}] Finnhub     — Earnings calendar + EPS surprises`);
+  console.log(`    [${finnhub}] Finnhub      — Earnings calendar + EPS surprises`);
+  console.log(`    [${tasty}] Tastytrade   — IV rank, IV percentile, option chains`);
   console.log(`    [${orats}] ORATS        — IV crush analytics + actual earnings moves`);
   console.log(`    [${av}] Alpha Vantage — Historical options with IV + Greeks`);
   console.log(`    [✓] Yahoo Finance — Stock quotes + options fallback (free)\n`);
