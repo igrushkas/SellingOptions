@@ -11,15 +11,46 @@ import MarketSentiment from './components/MarketSentiment';
 import { useAuth } from './hooks/useAuth';
 import { subscribeTrades, addTrade } from './services/tradeService';
 import { fetchTodaysPlaysDirect } from './services/earningsApi';
-import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database, Clock } from 'lucide-react';
+import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database, Clock, ChevronDown, ChevronUp, BarChart3, Sun, Moon, Activity } from 'lucide-react';
 import './index.css';
 
 const API_BASE = '/api';
 
+// ── Collapsible Section wrapper ──
+function Section({ title, icon: Icon, count, color = 'gray', defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const colorMap = {
+    blue: { bg: 'bg-neon-blue/8', border: 'border-neon-blue/15', text: 'text-neon-blue' },
+    purple: { bg: 'bg-neon-purple/8', border: 'border-neon-purple/15', text: 'text-neon-purple' },
+    green: { bg: 'bg-neon-green/8', border: 'border-neon-green/15', text: 'text-neon-green' },
+    orange: { bg: 'bg-neon-orange/8', border: 'border-neon-orange/15', text: 'text-neon-orange' },
+    gray: { bg: 'bg-dark-700/50', border: 'border-glass-border', text: 'text-gray-300' },
+  };
+  const c = colorMap[color] || colorMap.gray;
+
+  return (
+    <div className={`rounded-xl border ${c.border} ${c.bg} p-4`}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 text-left"
+      >
+        {Icon && <Icon className={`w-4 h-4 ${c.text}`} />}
+        <span className={`text-sm font-bold ${c.text}`}>{title}</span>
+        {count != null && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 font-semibold">{count}</span>
+        )}
+        <div className="ml-auto">
+          {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-500" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />}
+        </div>
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </div>
+  );
+}
+
 function App() {
   const { user, loading: authLoading, error: authError, login, logout } = useAuth();
 
-  // Auth gate — show login screen until authenticated
   if (authLoading) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
@@ -45,17 +76,15 @@ function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('today');
   const [addTradeStock, setAddTradeStock] = useState(null);
 
-  // Live earnings data — NO mock fallback
   const [liveAMC, setLiveAMC] = useState([]);
   const [liveBMO, setLiveBMO] = useState([]);
   const [dataSource, setDataSource] = useState('loading');
-  const [dataSources, setDataSources] = useState(null); // { finnhub, orats, alphaVantage, ... }
+  const [dataSources, setDataSources] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [amcLabel, setAmcLabel] = useState('');
   const [bmoLabel, setBmoLabel] = useState('');
 
-  // Load trades from Firestore
   const [trades, setTrades] = useState([]);
 
   useEffect(() => {
@@ -63,7 +92,6 @@ function Dashboard({ user, onLogout }) {
     return () => unsubscribe();
   }, []);
 
-  // Fetch live earnings: try backend first, then call APIs directly
   const fetchLiveEarnings = useCallback(async () => {
     setLoading(true);
     setErrorMsg('');
@@ -73,14 +101,12 @@ function Dashboard({ user, onLogout }) {
     const isCustomDate = dateFilter !== todayStr;
     const dateParam = isCustomDate ? `?date=${dateFilter}` : '';
 
-    // 1. Try backend server (local dev)
     try {
       const [playsRes, sourcesRes] = await Promise.all([
         fetch(`${API_BASE}/plays/today${dateParam}`),
         fetch(`${API_BASE}/sources`).catch(() => null),
       ]);
 
-      // Capture which data sources are configured
       if (sourcesRes?.ok) {
         const sources = await sourcesRes.json();
         setDataSources(sources);
@@ -93,7 +119,6 @@ function Dashboard({ user, onLogout }) {
         setAmcLabel(data.amcLabel || '');
         setBmoLabel(data.bmoLabel || '');
 
-        // Detect best data source from enriched stock data
         const allStocks = [...(data.amcEarnings || []), ...(data.bmoEarnings || [])];
         const hasOrats = allStocks.some(s => s.ivSource === 'orats' || s.historySource === 'orats');
         const hasAV = allStocks.some(s => s.ivSource === 'alpha_vantage');
@@ -103,10 +128,9 @@ function Dashboard({ user, onLogout }) {
         return;
       }
     } catch {
-      // Backend not available — fall through to direct API calls
+      // Backend not available
     }
 
-    // 2. Call Finnhub/FMP directly from browser
     try {
       const data = await fetchTodaysPlaysDirect(isCustomDate ? dateFilter : null);
       setLiveAMC(data.amcEarnings || []);
@@ -136,7 +160,6 @@ function Dashboard({ user, onLogout }) {
 
   const allEarnings = useMemo(() => {
     let data = [...liveAMC, ...liveBMO];
-
     if (showWeeklyOnly) {
       data = data.filter(e => e.hasWeeklyOptions);
     }
@@ -163,6 +186,42 @@ function Dashboard({ user, onLogout }) {
   };
   const badge = sourceBadge[dataSource] || sourceBadge.finnhub;
 
+  // ── Full-page Stock Detail View ──
+  if (selectedStock) {
+    return (
+      <div className="min-h-screen bg-dark-900">
+        <Header
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
+          showWeeklyOnly={showWeeklyOnly}
+          setShowWeeklyOnly={setShowWeeklyOnly}
+          totalStocks={allEarnings.length}
+          user={user}
+          onLogout={onLogout}
+        />
+        <main className="max-w-[1400px] mx-auto px-6 lg:px-10 pt-4 pb-12">
+          <StockDetail
+            stock={selectedStock}
+            onClose={() => setSelectedStock(null)}
+            onAddTrade={setAddTradeStock}
+          />
+          <div className="mt-3">
+            <AIAnalysisPanel stock={selectedStock} />
+          </div>
+        </main>
+
+        {addTradeStock && (
+          <AddTradeModal
+            stock={addTradeStock}
+            onSave={async (trade) => { await addTrade(trade); setAddTradeStock(null); }}
+            onClose={() => setAddTradeStock(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Main Dashboard View ──
   return (
     <div className="min-h-screen bg-dark-900">
       <Header
@@ -175,69 +234,50 @@ function Dashboard({ user, onLogout }) {
         onLogout={onLogout}
       />
 
-      <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-6 pb-12">
-        {/* Daily Workflow + Strategy — always visible at top */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+      <main className="max-w-[1400px] mx-auto px-6 lg:px-10 pt-4 pb-12 space-y-4">
+        {/* Daily Workflow + Strategy */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-3 mb-3 px-4 py-2 rounded-lg bg-neon-blue/10 border border-neon-blue/20">
-              <Clock className="w-4 h-4 text-neon-blue" />
-              <h2 className="text-sm font-bold text-neon-blue">Daily Workflow</h2>
-            </div>
-            <div className="glass-card p-4">
+            <Section title="Daily Workflow" icon={Clock} color="blue">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-xs">
-                <div className="flex items-start gap-2">
-                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">1</span>
-                  <div>
-                    <span className="text-white font-semibold">9:30-10 AM ET</span>
-                    <p className="text-gray-400 mt-0.5">Close positions within first 30 min for IV crush profit.</p>
+                {[
+                  { step: '1', time: '9:30-10 AM ET', desc: 'Close positions within first 30 min for IV crush profit.' },
+                  { step: '2', time: '10 AM ET', desc: 'Mark trades as won/lost. Review P&L.' },
+                  { step: '3', time: '2-3 PM ET', desc: 'Review tonight AMC + next day BMO. Pick best setups.' },
+                  { step: '4', time: '3-3:45 PM ET', desc: 'Sell options at recommended strikes. Log trades.' },
+                ].map(({ step, time, desc }) => (
+                  <div key={step} className="flex items-start gap-2">
+                    <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">{step}</span>
+                    <div>
+                      <span className="text-white font-semibold">{time}</span>
+                      <p className="text-gray-400 mt-0.5">{desc}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">2</span>
-                  <div>
-                    <span className="text-white font-semibold">10 AM ET</span>
-                    <p className="text-gray-400 mt-0.5">Mark trades as won/lost. Review P&L.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">3</span>
-                  <div>
-                    <span className="text-white font-semibold">2-3 PM ET</span>
-                    <p className="text-gray-400 mt-0.5">Review tonight AMC + next day BMO. Pick best setups.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">4</span>
-                  <div>
-                    <span className="text-white font-semibold">3-3:45 PM ET</span>
-                    <p className="text-gray-400 mt-0.5">Sell options at recommended strikes. Log trades.</p>
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
+            </Section>
           </div>
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-3 mb-3 px-4 py-2 rounded-lg bg-neon-purple/10 border border-neon-purple/20">
-              <Crosshair className="w-4 h-4 text-neon-purple" />
-              <h2 className="text-sm font-bold text-neon-purple">Strategy</h2>
-            </div>
-            <div className="glass-card p-4">
+            <Section title="Strategy" icon={Crosshair} color="purple">
               <p className="text-xs text-gray-300 leading-relaxed">
                 <span className="text-white font-semibold">Volatility Crusher</span> finds stocks where the options market is <span className="text-neon-orange font-semibold">overpricing</span> the expected earnings move. Sell options outside the expected range and collect premium as IV collapses. Each stock gets a <span className="text-neon-green font-semibold">strategy recommendation</span> based on directional bias, IV crush ratio, and win rate.
               </p>
-            </div>
+            </Section>
           </div>
         </div>
 
-        <KPICards earnings={allEarnings} />
+        {/* KPI Stats */}
+        <Section title="Stats Overview" icon={BarChart3} color="green" count={allEarnings.length}>
+          <KPICards earnings={allEarnings} />
+        </Section>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-3 mt-8 mb-6 border-b border-glass-border pb-3">
+        <div className="flex items-center gap-2 border-b border-glass-border pb-3">
           {tabs.map(tab => (
             <button
               key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setSelectedStock(null); }}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === tab.key
                   ? 'bg-neon-blue/15 text-neon-blue border border-neon-blue/30'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700'
@@ -248,22 +288,22 @@ function Dashboard({ user, onLogout }) {
             </button>
           ))}
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             {dataSources && (
-              <div className="flex items-center gap-1.5" title="Active data sources">
+              <div className="flex items-center gap-1" title="Active data sources">
                 <Database className="w-3 h-3 text-gray-500" />
-                {dataSources.orats && <span className="text-[9px] px-1.5 py-0.5 rounded bg-neon-purple/10 text-neon-purple font-semibold">ORATS</span>}
-                {dataSources.alphaVantage && <span className="text-[9px] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green font-semibold">AV</span>}
-                {dataSources.finnhub && <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 font-semibold">FH</span>}
+                {dataSources.orats && <span className="text-[9px] px-1 py-0.5 rounded bg-neon-purple/10 text-neon-purple font-semibold">ORATS</span>}
+                {dataSources.alphaVantage && <span className="text-[9px] px-1 py-0.5 rounded bg-neon-green/10 text-neon-green font-semibold">AV</span>}
+                {dataSources.finnhub && <span className="text-[9px] px-1 py-0.5 rounded bg-gray-700 text-gray-400 font-semibold">FH</span>}
               </div>
             )}
-            <span className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold ${badge.cls}`}>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${badge.cls}`}>
               {badge.label}
             </span>
             <button
               onClick={fetchLiveEarnings}
               disabled={loading}
-              className="p-2 rounded-lg hover:bg-dark-700 text-gray-400 hover:text-white transition-all disabled:opacity-50"
+              className="p-1.5 rounded-lg hover:bg-dark-700 text-gray-400 hover:text-white transition-all disabled:opacity-50"
               title="Refresh earnings data"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -273,9 +313,9 @@ function Dashboard({ user, onLogout }) {
 
         {/* Offline banner */}
         {dataSource === 'offline' && (
-          <div className="mb-6 p-4 rounded-lg bg-neon-red/10 border border-neon-red/20 flex items-center gap-3">
-            <WifiOff className="w-5 h-5 text-neon-red shrink-0" />
-            <div className="text-sm">
+          <div className="p-3 rounded-lg bg-neon-red/10 border border-neon-red/20 flex items-center gap-3">
+            <WifiOff className="w-4 h-4 text-neon-red shrink-0" />
+            <div className="text-xs">
               <span className="text-neon-red font-semibold">No live data.</span>
               <span className="text-gray-400 ml-2">{errorMsg || 'API keys may be missing or server is down.'}</span>
             </div>
@@ -284,8 +324,10 @@ function Dashboard({ user, onLogout }) {
 
         {/* Today's Plays Tab */}
         {activeTab === 'today' && (
-          <>
-            <MarketSentiment />
+          <div className="space-y-4">
+            <Section title="Market Sentiment" icon={Activity} color="blue" defaultOpen={false}>
+              <MarketSentiment />
+            </Section>
             <TodayPlays
               amcEarnings={amcStocks}
               bmoEarnings={bmoStocks}
@@ -294,62 +336,26 @@ function Dashboard({ user, onLogout }) {
               onSelectStock={setSelectedStock}
               onAddTrade={setAddTradeStock}
             />
-            {selectedStock && (
-              <div className="mt-8 space-y-6">
-                <StockDetail
-                  stock={selectedStock}
-                  onClose={() => setSelectedStock(null)}
-                />
-                <AIAnalysisPanel stock={selectedStock} />
-              </div>
-            )}
-          </>
+          </div>
         )}
 
         {/* All Earnings Tab */}
         {activeTab === 'all' && (
-          <div className={`grid gap-8 ${selectedStock ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1'}`}>
-            <div className={selectedStock ? 'lg:col-span-1' : ''}>
-              <div className="mb-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-neon-orange pulse-live"></div>
-                  <h2 className="text-lg font-semibold text-white">
-                    Before Market Open ({bmoStocks.length})
-                  </h2>
-                  <span className="text-xs text-gray-500 ml-2">Pre-market earnings</span>
-                </div>
-                <EarningsTable
-                  stocks={bmoStocks}
-                  selectedStock={selectedStock}
-                  onSelectStock={setSelectedStock}
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-neon-purple pulse-live"></div>
-                  <h2 className="text-lg font-semibold text-white">
-                    After Market Close ({amcStocks.length})
-                  </h2>
-                  <span className="text-xs text-gray-500 ml-2">Post-market earnings</span>
-                </div>
-                <EarningsTable
-                  stocks={amcStocks}
-                  selectedStock={selectedStock}
-                  onSelectStock={setSelectedStock}
-                />
-              </div>
-            </div>
-
-            {selectedStock && (
-              <div className="lg:col-span-2 space-y-6">
-                <StockDetail
-                  stock={selectedStock}
-                  onClose={() => setSelectedStock(null)}
-                />
-                <AIAnalysisPanel stock={selectedStock} />
-              </div>
-            )}
+          <div className="space-y-4">
+            <Section title={`Before Market Open (${bmoStocks.length})`} icon={Sun} color="orange">
+              <EarningsTable
+                stocks={bmoStocks}
+                selectedStock={selectedStock}
+                onSelectStock={setSelectedStock}
+              />
+            </Section>
+            <Section title={`After Market Close (${amcStocks.length})`} icon={Moon} color="purple">
+              <EarningsTable
+                stocks={amcStocks}
+                selectedStock={selectedStock}
+                onSelectStock={setSelectedStock}
+              />
+            </Section>
           </div>
         )}
 
@@ -364,7 +370,6 @@ function Dashboard({ user, onLogout }) {
         )}
       </main>
 
-      {/* Add Trade Modal — rendered at app level so it works from any tab */}
       {addTradeStock && (
         <AddTradeModal
           stock={addTradeStock}

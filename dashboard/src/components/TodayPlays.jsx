@@ -1,4 +1,5 @@
-import { Sun, Moon, ArrowDown, ArrowUp } from 'lucide-react';
+import { useState } from 'react';
+import { Sun, Moon, ArrowDown, ArrowUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal, formatCurrency, calcSafeZone, getStrategyRecommendation } from '../utils/calculations';
 import Tooltip from './Tooltip';
 
@@ -31,10 +32,8 @@ const strategyColors = {
   skip: { bg: 'bg-gray-700/50', text: 'text-gray-500', border: 'border-gray-600', icon: '✕' },
 };
 
-// Format a leg for display: "Sell 1 Call" or "Buy 1 Put"
 function formatLeg(leg) {
   if (leg.instrument) return `${leg.type} ${leg.qty || 1} ${leg.instrument}`;
-  // Legacy format: "Sell Call" etc
   return leg.type;
 }
 
@@ -125,14 +124,12 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
             )}
           </div>
 
-          {/* Directional bias bar */}
           {rec.downPct != null && rec.strategy !== 'skip' && (
             <div className="mb-1.5">
               <BiasIndicator downPct={rec.downPct} upPct={rec.upPct} />
             </div>
           )}
 
-          {/* Leg details */}
           {rec.legs.length > 0 && (
             <div className="space-y-0.5">
               {rec.legs.map((leg, i) => (
@@ -146,7 +143,6 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
             </div>
           )}
 
-          {/* Position sizing + exit */}
           {rec.sizing && (
             <div className="mt-1.5 pt-1.5 border-t border-white/5 flex justify-between text-[9px]">
               <span className="text-gray-500">Size: <span className="text-white font-semibold">{rec.sizing.accountPct}% of account</span></span>
@@ -168,68 +164,88 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
 }
 
 export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabel, bmoLabel, onSelectStock, onAddTrade }) {
+  const [showBMO, setShowBMO] = useState(true);
+  const [showAMC, setShowAMC] = useState(true);
+
   const signalOrder = { excellent: 0, good: 1, neutral: 2, risky: 3 };
-  const sortBySignal = (a, b) => {
+  const sortBySignalThenPrice = (a, b) => {
     const sa = getTradeSignal(a.impliedMove, a.historicalMoves);
     const sb = getTradeSignal(b.impliedMove, b.historicalMoves);
-    return signalOrder[sa] - signalOrder[sb];
+    const orderDiff = signalOrder[sa] - signalOrder[sb];
+    if (orderDiff !== 0) return orderDiff;
+    return (a.price || 0) - (b.price || 0);
   };
 
-  const tonightAMC = [...amcEarnings].sort(sortBySignal);
-  const tomorrowBMO = [...bmoEarnings].sort(sortBySignal);
+  const tomorrowBMO = [...bmoEarnings].sort(sortBySignalThenPrice);
+  const tonightAMC = [...amcEarnings].sort(sortBySignalThenPrice);
 
   return (
-    <div className="space-y-8">
-      {/* BMO Plays — morning first */}
-      <div>
-        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-lg bg-neon-orange/10 border border-neon-orange/20">
+    <div className="space-y-5">
+      {/* BMO Container — lighter background */}
+      <div className="rounded-2xl bg-dark-750/60 border border-neon-orange/10 p-5">
+        <button
+          onClick={() => setShowBMO(!showBMO)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-orange/10 border border-neon-orange/20 hover:bg-neon-orange/15 transition-colors"
+        >
           <Sun className="w-5 h-5 text-neon-orange" />
-          <h2 className="text-lg font-bold text-neon-orange">{bmoLabel || "Next Trading Day Morning (BMO)"}</h2>
-          <span className="text-xs text-gray-400">
+          <h2 className="text-base font-bold text-neon-orange">{bmoLabel || "Next Trading Day Morning (BMO)"}</h2>
+          <span className="text-xs text-gray-400 hidden md:inline">
             — Sell options before close, IV crush at open
           </span>
-          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-orange/20 text-neon-orange border border-neon-orange/30 font-semibold">
-            {tomorrowBMO.length} stocks
-          </span>
-        </div>
-        {tomorrowBMO.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-            {tomorrowBMO.map(stock => (
-              <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
-            ))}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-neon-orange/20 text-neon-orange border border-neon-orange/30 font-semibold">
+              {tomorrowBMO.length}
+            </span>
+            {showBMO ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
           </div>
-        ) : (
-          <div className="glass-card p-8 text-center text-gray-500 text-sm">
-            No BMO earnings above $5 — {bmoLabel || 'next trading day'}
-          </div>
+        </button>
+        {showBMO && (
+          tomorrowBMO.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+              {tomorrowBMO.map(stock => (
+                <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 text-center text-gray-500 text-sm mt-3">
+              No BMO earnings above $5 — {bmoLabel || 'next trading day'}
+            </div>
+          )
         )}
       </div>
 
-      {/* AMC Plays — evening second */}
-      <div>
-        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-lg bg-neon-purple/10 border border-neon-purple/20">
+      {/* AMC Container */}
+      <div className="rounded-2xl bg-dark-800/40 border border-neon-purple/10 p-5">
+        <button
+          onClick={() => setShowAMC(!showAMC)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-purple/10 border border-neon-purple/20 hover:bg-neon-purple/15 transition-colors"
+        >
           <Moon className="w-5 h-5 text-neon-purple" />
-          <h2 className="text-lg font-bold text-neon-purple">{amcLabel || "Tonight's Earnings (AMC)"}</h2>
-          <span className="text-xs text-gray-400">
+          <h2 className="text-base font-bold text-neon-purple">{amcLabel || "Tonight's Earnings (AMC)"}</h2>
+          <span className="text-xs text-gray-400 hidden md:inline">
             — Sell options NOW, close next trading morning
           </span>
-          <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-neon-purple/20 text-neon-purple border border-neon-purple/30 font-semibold">
-            {tonightAMC.length} stocks
-          </span>
-        </div>
-        {tonightAMC.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-            {tonightAMC.map(stock => (
-              <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
-            ))}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-neon-purple/20 text-neon-purple border border-neon-purple/30 font-semibold">
+              {tonightAMC.length}
+            </span>
+            {showAMC ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
           </div>
-        ) : (
-          <div className="glass-card p-8 text-center text-gray-500 text-sm">
-            No AMC earnings above $5 — {amcLabel || 'tonight'}
-          </div>
+        </button>
+        {showAMC && (
+          tonightAMC.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+              {tonightAMC.map(stock => (
+                <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 text-center text-gray-500 text-sm mt-3">
+              No AMC earnings above $5 — {amcLabel || 'tonight'}
+            </div>
+          )
         )}
       </div>
-
     </div>
   );
 }

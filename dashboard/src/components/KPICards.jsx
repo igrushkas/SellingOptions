@@ -3,7 +3,6 @@ import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal } from '../util
 import Tooltip from './Tooltip';
 
 export default function KPICards({ earnings }) {
-  // Calculate aggregate KPIs
   const excellentTrades = earnings.filter(e => getTradeSignal(e.impliedMove, e.historicalMoves) === 'excellent').length;
   const goodTrades = earnings.filter(e => getTradeSignal(e.impliedMove, e.historicalMoves) === 'good').length;
   const riskyTrades = earnings.filter(e => getTradeSignal(e.impliedMove, e.historicalMoves) === 'risky').length;
@@ -15,72 +14,72 @@ export default function KPICards({ earnings }) {
 
   const cards = [
     {
-      label: 'Excellent Setups',
+      label: 'Excellent',
       value: excellentTrades,
       subtitle: 'High IV crush + win rate',
       icon: Target,
       color: 'neon-green',
       glow: 'glow-green',
-      tip: 'Stocks with IV Crush Ratio > 1.2x AND Win Rate > 75%. These are the best candidates for selling premium — the market is significantly overpricing the expected move.',
+      tip: 'Stocks with IV Crush Ratio > 1.2x AND Win Rate > 75%. These are the best candidates for selling premium.',
     },
     {
-      label: 'Good Setups',
+      label: 'Good',
       value: goodTrades,
       subtitle: 'Favorable risk/reward',
       icon: TrendingUp,
       color: 'neon-blue',
       glow: 'glow-blue',
-      tip: 'Stocks with IV Crush > 1.0x AND Win Rate > 60%. Decent selling opportunities with favorable odds, but not as strong as excellent setups.',
+      tip: 'Stocks with IV Crush > 1.0x AND Win Rate > 60%. Decent selling opportunities.',
     },
     {
-      label: 'Avg Win Rate',
+      label: 'Win Rate',
       value: `${avgWinRate.toFixed(0)}%`,
-      subtitle: 'At implied move strikes',
+      subtitle: 'At implied strikes',
       icon: ShieldCheck,
       color: avgWinRate >= 75 ? 'neon-green' : 'neon-orange',
       glow: avgWinRate >= 75 ? 'glow-green' : '',
-      tip: 'Average historical win rate across all stocks. This is how often selling at the implied move distance would have been profitable historically. 75%+ is ideal.',
+      tip: 'Average historical win rate across all stocks. 75%+ is ideal.',
     },
     {
-      label: 'Avg IV Crush Ratio',
+      label: 'IV Crush',
       value: `${avgCrushRatio.toFixed(2)}x`,
-      subtitle: avgCrushRatio > 1 ? 'IV is overpriced — sell!' : 'IV fairly priced',
+      subtitle: avgCrushRatio > 1 ? 'IV overpriced' : 'Fairly priced',
       icon: DollarSign,
       color: avgCrushRatio > 1.2 ? 'neon-green' : 'neon-orange',
       glow: avgCrushRatio > 1.2 ? 'glow-green' : '',
-      tip: 'Implied Move / Avg Historical Move across all stocks. Above 1.0 means options are overpriced on average. Above 1.2 is a strong signal to sell premium.',
+      tip: 'Implied Move / Avg Historical Move. Above 1.0 = options overpriced. Above 1.2 = strong sell signal.',
     },
     {
-      label: 'Highest IV Stock',
+      label: 'Highest IV',
       value: highestIV?.ticker || '-',
-      subtitle: `${highestIV?.impliedMove || 0}% implied move`,
+      subtitle: `${highestIV?.impliedMove || 0}% implied`,
       icon: AlertTriangle,
       color: 'neon-red',
       glow: 'glow-red',
-      tip: 'The stock with the largest expected move. High implied moves mean expensive options — which can be great for sellers IF the IV crush ratio is also high.',
+      tip: 'Stock with the largest expected move. High implied moves = expensive options.',
     },
     {
-      label: 'Risky Setups',
+      label: 'Risky',
       value: riskyTrades,
-      subtitle: 'IV underpriced — avoid',
+      subtitle: 'IV underpriced',
       icon: TrendingDown,
       color: 'neon-red',
       glow: 'glow-red',
-      tip: 'Stocks where IV Crush < 0.8x — the actual move is typically BIGGER than what options price in. Selling premium on these is dangerous. Avoid.',
+      tip: 'Stocks where IV Crush < 0.8x — actual move typically BIGGER than implied. Avoid selling.',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
+    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
       {cards.map((card) => (
         <Tooltip key={card.label} text={card.tip} position="bottom">
-          <div className={`glass-card p-4 ${card.glow} cursor-help`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-400 uppercase tracking-wider">{card.label}</span>
-              <card.icon className={`w-4 h-4 text-${card.color}`} />
+          <div className={`glass-card p-2.5 ${card.glow} cursor-help`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[9px] text-gray-400 uppercase tracking-wider">{card.label}</span>
+              <card.icon className={`w-3 h-3 text-${card.color}`} />
             </div>
-            <div className={`text-2xl font-bold text-${card.color}`}>{card.value}</div>
-            <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
+            <div className={`text-lg font-bold text-${card.color}`}>{card.value}</div>
+            <p className="text-[9px] text-gray-500 mt-0.5">{card.subtitle}</p>
           </div>
         </Tooltip>
       ))}
