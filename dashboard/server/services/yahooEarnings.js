@@ -18,7 +18,7 @@
  * Results cached for 24 hours per ticker.
  */
 
-import https from 'https';
+import { fetchYahooJSON } from './yahooSession.js';
 
 // Cache: historical data doesn't change, cache for 24 hours
 const cache = {};
@@ -62,12 +62,12 @@ export async function fetchHistoricalEarningsMoves(ticker, earningsDates) {
 
 /**
  * Get 5 years of daily prices from Yahoo Finance chart endpoint.
- * This endpoint does NOT require auth (cookie/crumb).
+ * Uses cookie/crumb auth via shared session.
  */
 async function fetchPriceHistory(ticker) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y`;
 
-  const data = await fetchJSON(url);
+  const data = await fetchYahooJSON(url);
   const result = data?.chart?.result?.[0];
   if (!result) return null;
 
@@ -182,30 +182,3 @@ function calculateEarningsMoves(earningsDates, priceHistory) {
   return moves;
 }
 
-// ── HTTP helper ──
-
-/** Fetch JSON without auth (chart endpoint doesn't need it) */
-function fetchJSON(url) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-      },
-      timeout: 15000,
-    }, (res) => {
-      if (res.statusCode !== 200) {
-        res.resume();
-        return reject(new Error(`Yahoo HTTP ${res.statusCode}`));
-      }
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { reject(new Error('Yahoo JSON parse error')); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Yahoo timeout')); });
-  });
-}

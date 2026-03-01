@@ -13,13 +13,13 @@
  * Rate-limits enrichment to respect API limits.
  */
 
-import https from 'https';
 import { fetchEarningsCalendar as finnhubCalendar, fetchEarningsSurprises } from './finnhub.js';
 import { fetchEarningsCalendar as fmpCalendar } from './fmp.js';
 import { fetchImpliedMove as yahooImpliedMove } from './yahooOptions.js';
 import { fetchHistoricalEarningsMoves } from './yahooEarnings.js';
 import { fetchEarningsData, fetchImpliedEarningsMove, buildHistoricalMoves, calcOratsIVCrushStats } from './orats.js';
 import { fetchImpliedMove as alphaVantageImpliedMove, fetchEarningsCalendar as avEarningsCalendar } from './alphaVantage.js';
+import { fetchYahooJSON } from './yahooSession.js';
 
 const cache = {};
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -327,7 +327,7 @@ async function enrichTicker(entry, keys) {
 async function fetchYahooQuote(ticker) {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
-    const json = await fetchJSON(url);
+    const json = await fetchYahooJSON(url);
     const meta = json?.chart?.result?.[0]?.meta;
     if (!meta) return { name: ticker, price: 0, marketCap: '' };
     return {
@@ -397,21 +397,3 @@ function getCurrentTradingDay(date) {
   return d;
 }
 
-function fetchJSON(url) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
-      timeout: 10000,
-    }, (res) => {
-      if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { reject(new Error('JSON parse error')); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-  });
-}

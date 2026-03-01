@@ -9,10 +9,7 @@
  */
 
 import https from 'https';
-
-// Cache the cookie/crumb pair (valid ~10-20 min)
-let sessionCache = { cookie: null, crumb: null, fetchedAt: 0 };
-const SESSION_TTL = 10 * 60 * 1000; // 10 minutes
+import { getYahooSession, invalidateYahooSession } from './yahooSession.js';
 
 /**
  * Calculate implied move % from ATM straddle.
@@ -23,7 +20,7 @@ export async function fetchImpliedMove(ticker, stockPrice) {
 
   try {
     // 1. Get session (cookie + crumb)
-    const session = await getSession();
+    const session = await getYahooSession();
     if (!session) {
       console.warn('[YahooOptions] Could not obtain session');
       return null;
@@ -76,79 +73,6 @@ export async function fetchImpliedMove(ticker, stockPrice) {
   }
 }
 
-// ── Session Management (cookie + crumb) ──
-
-async function getSession() {
-  // Return cached session if still valid
-  if (sessionCache.cookie && Date.now() - sessionCache.fetchedAt < SESSION_TTL) {
-    return sessionCache;
-  }
-
-  try {
-    // Step 1: GET fc.yahoo.com to obtain consent cookie
-    const cookie = await getCookie();
-    if (!cookie) return null;
-
-    // Step 2: GET crumb using the cookie
-    const crumb = await getCrumb(cookie);
-    if (!crumb) return null;
-
-    sessionCache = { cookie, crumb, fetchedAt: Date.now() };
-    console.log('[YahooOptions] Session established');
-    return sessionCache;
-  } catch (err) {
-    console.warn('[YahooOptions] Session setup failed:', err.message);
-    return null;
-  }
-}
-
-function getCookie() {
-  return new Promise((resolve) => {
-    const req = https.get('https://fc.yahoo.com/', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      timeout: 8000,
-    }, (res) => {
-      // We want the Set-Cookie header regardless of status code (often 404)
-      const cookies = res.headers['set-cookie'];
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (cookies && cookies.length > 0) {
-          // Extract just the cookie name=value pairs
-          const cookieStr = cookies.map(c => c.split(';')[0]).join('; ');
-          resolve(cookieStr);
-        } else {
-          resolve(null);
-        }
-      });
-    });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
-  });
-}
-
-function getCrumb(cookie) {
-  return new Promise((resolve) => {
-    const req = https.get('https://query2.finance.yahoo.com/v1/test/getcrumb', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Cookie': cookie,
-      },
-      timeout: 8000,
-    }, (res) => {
-      if (res.statusCode !== 200) {
-        res.resume();
-        return resolve(null);
-      }
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data.trim() || null));
-    });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
-  });
-}
-
 // ── Options Chain Fetch ──
 
 async function fetchOptions(ticker, session, expirationTs) {
@@ -168,7 +92,7 @@ async function fetchOptions(ticker, session, expirationTs) {
         res.resume();
         // Invalidate session on auth errors
         if (res.statusCode === 401 || res.statusCode === 403) {
-          sessionCache = { cookie: null, crumb: null, fetchedAt: 0 };
+          invalidateYahooSession();
         }
         return resolve(null);
       }
