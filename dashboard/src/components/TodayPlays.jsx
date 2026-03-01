@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Sun, Moon, ArrowDown, ArrowUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal, formatCurrency, calcSafeZone, getStrategyRecommendation } from '../utils/calculations';
 import Tooltip from './Tooltip';
+import StrategyDiagram from './StrategyDiagram';
 
 const signalBadge = {
   excellent: 'bg-neon-green/15 text-neon-green border-neon-green/30',
@@ -111,7 +112,12 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
       </div>
 
       {/* Strategy Recommendation */}
-      <Tooltip text={rec.reason} position="bottom">
+      <Tooltip text={
+        <div>
+          <StrategyDiagram strategy={rec.strategy} />
+          <p className="mt-1.5 pt-1.5 border-t border-white/10 text-[10px] text-gray-300 leading-relaxed">{rec.reason}</p>
+        </div>
+      } position="bottom" wide>
         <div className={`rounded-lg p-3 mb-3 border ${strat.bg} ${strat.border} cursor-help`}>
           <div className="flex items-center justify-between mb-1.5">
             <span className={`text-xs font-bold ${strat.text} uppercase`}>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, TrendingUp, TrendingDown, Shield, Target, AlertCircle, Newspaper, Activity, ArrowDown, ArrowUp, Crosshair } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Shield, Target, AlertCircle, Newspaper, Activity, ArrowDown, ArrowUp, Crosshair, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
+import StrategyDiagram from './StrategyDiagram';
 import {
   calcSafeZone,
   predictNextMove,
@@ -293,6 +294,13 @@ function StrategyTradeCard({ stock }) {
       <div className={`text-base font-bold mb-2 ${isSkip ? 'text-gray-500' : 'text-white'}`}>
         {rec.strategyName}
       </div>
+
+      {/* P&L Diagram */}
+      {!isSkip && (
+        <div className="mb-2 bg-dark-700/30 rounded-lg p-2">
+          <StrategyDiagram strategy={rec.strategy} showLabel={false} />
+        </div>
+      )}
 
       {/* Leg Details */}
       {rec.legs.length > 0 && (

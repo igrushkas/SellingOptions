@@ -15,6 +15,8 @@ const signalColors = {
   risky: { bg: 'bg-neon-red/15', text: 'text-neon-red', border: 'border-neon-red/30', label: 'RISKY' },
 };
 
+const signalOrder = { excellent: 0, good: 1, neutral: 2, risky: 3 };
+
 export default function EarningsTable({ stocks, selectedStock, onSelectStock }) {
   if (!stocks || stocks.length === 0) {
     return (
@@ -23,6 +25,14 @@ export default function EarningsTable({ stocks, selectedStock, onSelectStock }) 
       </div>
     );
   }
+
+  // Sort: excellent first, then good, neutral, risky; within same signal → cheap first
+  const sorted = [...stocks].sort((a, b) => {
+    const sa = signalOrder[getTradeSignal(a.impliedMove, a.historicalMoves)] ?? 9;
+    const sb = signalOrder[getTradeSignal(b.impliedMove, b.historicalMoves)] ?? 9;
+    if (sa !== sb) return sa - sb;
+    return (a.price || 0) - (b.price || 0);
+  });
 
   return (
     <div className="glass-card overflow-hidden">
@@ -42,7 +52,7 @@ export default function EarningsTable({ stocks, selectedStock, onSelectStock }) 
             </tr>
           </thead>
           <tbody>
-            {stocks.map((stock) => {
+            {sorted.map((stock) => {
               const signal = getTradeSignal(stock.impliedMove, stock.historicalMoves);
               const signalStyle = signalColors[signal];
               const crushRatio = calcIVCrushRatio(stock.impliedMove, stock.historicalMoves);
