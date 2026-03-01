@@ -266,11 +266,28 @@ function calculateEarningsMoves(earningsDates, priceHistory) {
     const quarter = Math.floor(d.getMonth() / 3) + 1;
     const year = d.getFullYear();
 
+    // Find the Friday closing price ~1 week after earnings
+    // This shows where the stock settled after the initial earnings reaction
+    let fridayMove = null;
+    for (let fi = idx + 1; fi < Math.min(idx + 10, priceHistory.length); fi++) {
+      const fDate = new Date(priceHistory[fi].date + 'T12:00:00');
+      // Must be a Friday (day 5) and at least 3 trading days after earnings
+      if (fDate.getDay() === 5 && fi >= idx + 3) {
+        const fridayClose = priceHistory[fi].close;
+        if (fridayClose && dayBefore.close) {
+          const raw = ((fridayClose - dayBefore.close) / dayBefore.close) * 100;
+          fridayMove = Math.round(raw * 10) / 10;
+        }
+        break;
+      }
+    }
+
     moves.push({
       quarter: `Q${quarter} ${year}`,
       actual: Math.round(Math.abs(bestMove) * 10) / 10,
       direction: bestMove >= 0 ? 'up' : 'down',
       date: earningsDate,
+      fridayMove,
     });
   }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, Shield, Target, AlertCircle, Newspaper, Activity, ArrowDown, ArrowUp, Crosshair, Info } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 import StrategyDiagram from './StrategyDiagram';
 import {
   calcSafeZone,
@@ -15,22 +15,28 @@ import {
 
 // ── Historical Chart ──
 function HistoricalMovesChart({ historicalMoves, impliedMove }) {
+  const hasFridayData = historicalMoves.some(m => m.fridayMove != null);
+
   const chartData = [...historicalMoves].reverse().map(m => ({
     quarter: m.quarter.replace('Q', '').replace(' ', "'"),
     move: m.direction === 'up' ? m.actual : -m.actual,
     fill: m.direction === 'up' ? '#00ff88' : '#ff3366',
+    fridayMove: m.fridayMove != null ? m.fridayMove : undefined,
   }));
 
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={chartData} margin={{ top: 15, right: 10, left: 10, bottom: 5 }}>
+      <ComposedChart data={chartData} margin={{ top: 15, right: 10, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
         <XAxis dataKey="quarter" tick={{ fill: '#94a3b8', fontSize: 9 }} angle={-45} textAnchor="end" height={50} />
         <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
         <Tooltip
           contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
           labelStyle={{ color: '#fff' }}
-          formatter={(value) => [`${value.toFixed(1)}%`, 'Move']}
+          formatter={(value, name) => [
+            `${value.toFixed(1)}%`,
+            name === 'fridayMove' ? 'Friday Close' : 'Earnings Move',
+          ]}
         />
         <ReferenceLine y={impliedMove} stroke="#ff8800" strokeDasharray="5 5" label={{ value: `+${impliedMove}%`, fill: '#ff8800', fontSize: 10, position: 'right' }} />
         <ReferenceLine y={-impliedMove} stroke="#ff8800" strokeDasharray="5 5" label={{ value: `-${impliedMove}%`, fill: '#ff8800', fontSize: 10, position: 'right' }} />
@@ -40,7 +46,18 @@ function HistoricalMovesChart({ historicalMoves, impliedMove }) {
             <Cell key={index} fill={entry.fill} fillOpacity={0.8} />
           ))}
         </Bar>
-      </BarChart>
+        {hasFridayData && (
+          <Line
+            dataKey="fridayMove"
+            type="monotone"
+            stroke="#FFD700"
+            strokeWidth={2}
+            dot={{ fill: '#FFD700', r: 3, strokeWidth: 0 }}
+            activeDot={{ fill: '#FFD700', r: 5, strokeWidth: 2, stroke: '#fff' }}
+            connectNulls
+          />
+        )}
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
@@ -507,7 +524,7 @@ export default function StockDetail({ stock, onClose, onAddTrade }) {
             )}
           </div>
           <p className="text-[9px] text-gray-500 mb-1">
-            Orange dashed = implied move (±{stock.impliedMove}%). Bars outside = loss.
+            Orange dashed = implied move (±{stock.impliedMove}%). <span className="text-yellow-400">Yellow line</span> = Friday close after earnings.
           </p>
           <HistoricalMovesChart historicalMoves={stock.historicalMoves} impliedMove={stock.impliedMove} />
         </div>
