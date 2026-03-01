@@ -204,16 +204,20 @@ async function enrichTicker(entry, keys) {
   }
 
   // 2. Yahoo Finance: actual stock price moves (free, no API key, unlimited)
+  //    Uses Finnhub earnings dates + Yahoo chart prices (no auth needed)
   if (!historicalMoves || historicalMoves.length < 4) {
-    try {
-      const yahooMoves = await fetchHistoricalEarningsMoves(ticker);
-      if (yahooMoves && yahooMoves.length > (historicalMoves?.length || 0)) {
-        historicalMoves = yahooMoves;
-        historySource = 'yahoo';
-        console.log(`[Orchestrator] ${ticker}: Yahoo historical price moves (${historicalMoves.length} quarters)`);
+    const finnhubDates = (finnhubSurprises || []).map(s => s.date).filter(Boolean);
+    if (finnhubDates.length > 0) {
+      try {
+        const yahooMoves = await fetchHistoricalEarningsMoves(ticker, finnhubDates);
+        if (yahooMoves && yahooMoves.length > (historicalMoves?.length || 0)) {
+          historicalMoves = yahooMoves;
+          historySource = 'yahoo';
+          console.log(`[Orchestrator] ${ticker}: Yahoo historical price moves (${historicalMoves.length} quarters)`);
+        }
+      } catch {
+        // Yahoo failed, fall through to Finnhub EPS
       }
-    } catch {
-      // Yahoo failed, fall through to Finnhub EPS
     }
   }
 
@@ -268,6 +272,18 @@ async function enrichTicker(entry, keys) {
       }
     } catch {
       // Yahoo failed too
+    }
+  }
+
+  // 4. Estimate from historical data (last resort — allows strategy engine to work)
+  //    Markets typically overprice earnings moves by ~10-20%, so avg * 1.1 is reasonable.
+  if (impliedMove === 0 && historicalMoves && historicalMoves.length >= 4) {
+    const absValues = historicalMoves.map(m => Math.abs(m.actual));
+    const avgMove = absValues.reduce((s, v) => s + v, 0) / absValues.length;
+    if (avgMove > 0) {
+      impliedMove = Math.round(avgMove * 1.1 * 10) / 10;
+      ivSource = 'estimated';
+      console.log(`[Orchestrator] ${ticker}: Estimated implied move ±${impliedMove}% from historical avg (${avgMove.toFixed(1)}%)`);
     }
   }
 

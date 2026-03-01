@@ -246,6 +246,19 @@ async function enrichSingle(entry, timing, keys) {
 
   const rawCap = profile?.marketCapRaw || 0;
 
+  // Estimate implied move from historical data when no options data source is available.
+  // Markets typically overprice earnings moves by ~10-20%, so avg * 1.1 is reasonable.
+  let impliedMove = 0;
+  let ivSource = 'none';
+  if (historicalMoves && historicalMoves.length >= 4) {
+    const absValues = historicalMoves.map(m => Math.abs(m.actual));
+    const avgMove = absValues.reduce((s, v) => s + v, 0) / absValues.length;
+    if (avgMove > 0) {
+      impliedMove = Math.round(avgMove * 1.1 * 10) / 10;
+      ivSource = 'estimated';
+    }
+  }
+
   return {
     id: ticker,
     ticker,
@@ -256,7 +269,8 @@ async function enrichSingle(entry, timing, keys) {
     date: entry.date,
     timing,
     hasWeeklyOptions: rawCap >= 2e9,
-    impliedMove: 0, // Options IV only available via backend (Yahoo Finance, no CORS)
+    impliedMove,
+    ivSource,
     historicalMoves,
     historySource,
     // Finnhub calendar fields
