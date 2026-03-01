@@ -98,11 +98,14 @@ export async function scrapeEarningsCalendar(fromDate, toDate, timing) {
 }
 
 /**
- * Fetch today's actionable plays.
- * On Friday: Fri AMC + Mon BMO (covers full weekend).
+ * Fetch actionable plays for a given date (or today if not specified).
+ * AMC = selected date evening, BMO = next trading day morning.
+ * On Friday/weekend: adjusts to next trading day.
+ *
+ * @param {string|null} dateStr - Optional date in YYYY-MM-DD format
  */
-export async function getTodaysPlays() {
-  const now = new Date();
+export async function getTodaysPlays(dateStr) {
+  const now = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
   const dayOfWeek = now.getDay();
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 

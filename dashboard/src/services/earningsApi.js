@@ -65,12 +65,14 @@ function delay(ms) {
 }
 
 /**
- * Fetch today's plays directly from Finnhub/FMP APIs.
+ * Fetch plays directly from Finnhub/FMP APIs.
  * On Friday: fetches Fri evening through Mon morning.
+ *
+ * @param {string|null} dateStr - Optional date in YYYY-MM-DD format (null = today)
  */
-export async function fetchTodaysPlaysDirect() {
+export async function fetchTodaysPlaysDirect(dateStr) {
   const keys = getKeys();
-  const now = new Date();
+  const now = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
   const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 

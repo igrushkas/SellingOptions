@@ -35,9 +35,10 @@ app.get('/api/earnings', async (req, res) => {
 });
 
 // Today's actionable plays: tonight AMC + next trading day BMO
+// Optional ?date=YYYY-MM-DD to fetch plays for a specific date
 app.get('/api/plays/today', async (req, res) => {
   try {
-    const data = await getTodaysPlays();
+    const data = await getTodaysPlays(req.query.date || null);
     res.json(data);
   } catch (error) {
     console.error('Today plays fetch error:', error.message);

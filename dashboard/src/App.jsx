@@ -68,10 +68,15 @@ function Dashboard({ user, onLogout }) {
     setLoading(true);
     setErrorMsg('');
 
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const isCustomDate = dateFilter !== todayStr;
+    const dateParam = isCustomDate ? `?date=${dateFilter}` : '';
+
     // 1. Try backend server (local dev)
     try {
       const [playsRes, sourcesRes] = await Promise.all([
-        fetch(`${API_BASE}/plays/today`),
+        fetch(`${API_BASE}/plays/today${dateParam}`),
         fetch(`${API_BASE}/sources`).catch(() => null),
       ]);
 
@@ -103,7 +108,7 @@ function Dashboard({ user, onLogout }) {
 
     // 2. Call Finnhub/FMP directly from browser
     try {
-      const data = await fetchTodaysPlaysDirect();
+      const data = await fetchTodaysPlaysDirect(isCustomDate ? dateFilter : null);
       setLiveAMC(data.amcEarnings || []);
       setLiveBMO(data.bmoEarnings || []);
       setAmcLabel(data.amcLabel || '');
@@ -123,7 +128,7 @@ function Dashboard({ user, onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFilter]);
 
   useEffect(() => {
     fetchLiveEarnings();
