@@ -206,14 +206,13 @@ async function enrichTicker(entry, keys) {
     console.log(`[Orchestrator] ${ticker}: ORATS historical moves (${historicalMoves.length} quarters)`);
   }
 
-  // 2. Yahoo Finance: actual stock price moves (free, no API key, unlimited)
-  //    Yahoo chart with &events=earnings provides both price history AND earnings dates,
-  //    so this works even when Finnhub EPS surprises returns empty.
-  //    Finnhub dates are passed as supplementary data to fill gaps.
+  // 2. Yahoo Finance: actual stock price moves (free, unlimited)
+  //    Uses quoteSummary earningsHistory + algorithmic gap detection as fallback.
+  //    Works even when Finnhub EPS surprises returns empty.
   if (!historicalMoves || historicalMoves.length < 4) {
     try {
       const finnhubDates = (finnhubSurprises || []).map(s => s.date).filter(Boolean);
-      const yahooMoves = await fetchHistoricalEarningsMoves(ticker, finnhubDates.length > 0 ? finnhubDates : undefined);
+      const yahooMoves = await fetchHistoricalEarningsMoves(ticker, finnhubDates);
       if (yahooMoves && yahooMoves.length > (historicalMoves?.length || 0)) {
         historicalMoves = yahooMoves;
         historySource = 'yahoo';

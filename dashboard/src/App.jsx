@@ -11,7 +11,7 @@ import MarketSentiment from './components/MarketSentiment';
 import { useAuth } from './hooks/useAuth';
 import { subscribeTrades, addTrade } from './services/tradeService';
 import { fetchTodaysPlaysDirect } from './services/earningsApi';
-import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database } from 'lucide-react';
+import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database, Clock } from 'lucide-react';
 import './index.css';
 
 const API_BASE = '/api';
@@ -176,6 +176,59 @@ function Dashboard({ user, onLogout }) {
       />
 
       <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-6 pb-12">
+        {/* Daily Workflow + Strategy — always visible at top */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-3 mb-3 px-4 py-2 rounded-lg bg-neon-blue/10 border border-neon-blue/20">
+              <Clock className="w-4 h-4 text-neon-blue" />
+              <h2 className="text-sm font-bold text-neon-blue">Daily Workflow</h2>
+            </div>
+            <div className="glass-card p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-xs">
+                <div className="flex items-start gap-2">
+                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">1</span>
+                  <div>
+                    <span className="text-white font-semibold">9:30-10 AM ET</span>
+                    <p className="text-gray-400 mt-0.5">Close positions within first 30 min for IV crush profit.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">2</span>
+                  <div>
+                    <span className="text-white font-semibold">10 AM ET</span>
+                    <p className="text-gray-400 mt-0.5">Mark trades as won/lost. Review P&L.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">3</span>
+                  <div>
+                    <span className="text-white font-semibold">2-3 PM ET</span>
+                    <p className="text-gray-400 mt-0.5">Review tonight AMC + next day BMO. Pick best setups.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">4</span>
+                  <div>
+                    <span className="text-white font-semibold">3-3:45 PM ET</span>
+                    <p className="text-gray-400 mt-0.5">Sell options at recommended strikes. Log trades.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="flex items-center gap-3 mb-3 px-4 py-2 rounded-lg bg-neon-purple/10 border border-neon-purple/20">
+              <Crosshair className="w-4 h-4 text-neon-purple" />
+              <h2 className="text-sm font-bold text-neon-purple">Strategy</h2>
+            </div>
+            <div className="glass-card p-4">
+              <p className="text-xs text-gray-300 leading-relaxed">
+                <span className="text-white font-semibold">Volatility Crusher</span> finds stocks where the options market is <span className="text-neon-orange font-semibold">overpricing</span> the expected earnings move. Sell options outside the expected range and collect premium as IV collapses. Each stock gets a <span className="text-neon-green font-semibold">strategy recommendation</span> based on directional bias, IV crush ratio, and win rate.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <KPICards earnings={allEarnings} />
 
         {/* Tab Navigation */}

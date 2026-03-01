@@ -1,4 +1,4 @@
-import { Sun, Moon, Clock, Crosshair, ArrowDown, ArrowUp, Minus } from 'lucide-react';
+import { Sun, Moon, ArrowDown, ArrowUp } from 'lucide-react';
 import { calcIVCrushRatio, calcHistoricalWinRate, getTradeSignal, formatCurrency, calcSafeZone, getStrategyRecommendation } from '../utils/calculations';
 import Tooltip from './Tooltip';
 
@@ -230,61 +230,6 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
         )}
       </div>
 
-      {/* Daily Workflow + Strategy Description */}
-      <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Daily Workflow — 2/3 width */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-lg bg-neon-blue/10 border border-neon-blue/20">
-            <Clock className="w-5 h-5 text-neon-blue" />
-            <h2 className="text-lg font-bold text-neon-blue">Daily Workflow</h2>
-          </div>
-          <div className="glass-card p-5 h-[calc(100%-56px)]">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-xs">
-              <div className="flex items-start gap-2">
-                <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">1</span>
-                <div>
-                  <span className="text-white font-semibold">9:30-10 AM ET</span>
-                  <p className="text-gray-400 mt-0.5">Check overnight results. Close positions within first 30 min for IV crush profit.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">2</span>
-                <div>
-                  <span className="text-white font-semibold">10 AM ET</span>
-                  <p className="text-gray-400 mt-0.5">Mark trades as won/lost. Review P&L. Rinse and repeat.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">3</span>
-                <div>
-                  <span className="text-white font-semibold">2-3 PM ET</span>
-                  <p className="text-gray-400 mt-0.5">Review tonight's AMC + next day's BMO earnings. Pick best IV crush setups.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">4</span>
-                <div>
-                  <span className="text-white font-semibold">3-3:45 PM ET</span>
-                  <p className="text-gray-400 mt-0.5">Sell options at recommended strikes per strategy. Log trades here.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Strategy Description — 1/3 width */}
-        <div className="lg:col-span-1">
-          <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-lg bg-neon-purple/10 border border-neon-purple/20">
-            <Crosshair className="w-5 h-5 text-neon-purple" />
-            <h2 className="text-lg font-bold text-neon-purple">Strategy</h2>
-          </div>
-          <div className="glass-card p-5 h-[calc(100%-56px)]">
-            <p className="text-xs text-gray-300 leading-relaxed">
-              <span className="text-white font-semibold">Volatility Crusher</span> finds stocks where the options market is <span className="text-neon-orange font-semibold">overpricing</span> the expected earnings move. When implied volatility is higher than the stock actually moves, we sell options outside the expected range and collect premium as IV collapses after the announcement. Each stock gets a <span className="text-neon-green font-semibold">strategy recommendation</span> — strangle, iron condor, one-leg spread, or skip — based on historical directional bias, IV crush ratio, and win rate.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
