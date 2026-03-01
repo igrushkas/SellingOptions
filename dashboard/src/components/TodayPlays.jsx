@@ -186,7 +186,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
   const tonightAMC = [...amcEarnings].sort(sortBySignalThenPrice);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* AMC Container — Tonight's evening trades first */}
       <div className={`rounded-2xl bg-dark-800/40 border border-neon-purple/10 p-5 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
         <button

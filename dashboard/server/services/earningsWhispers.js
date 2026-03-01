@@ -106,16 +106,15 @@ export async function scrapeEarningsCalendar(fromDate, toDate, timing) {
  */
 export async function getTodaysPlays(dateStr) {
   const now = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
-  const dayOfWeek = now.getDay();
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isMarketClosed = !isTradingDay(now);
 
   let amcDate, bmoDate;
 
-  if (isWeekend) {
-    // On weekends: AMC = Monday evening, BMO = Tuesday morning (next trading day after Monday)
-    const monday = getNextTradingDay(now);
-    amcDate = new Date(monday);
-    bmoDate = getNextTradingDay(monday);
+  if (isMarketClosed) {
+    // Market closed (weekend/holiday): AMC = next trading day evening, BMO = day after
+    const nextOpen = getNextTradingDay(now);
+    amcDate = new Date(nextOpen);
+    bmoDate = getNextTradingDay(nextOpen);
   } else {
     // Weekday: AMC = today evening, BMO = next trading day morning
     amcDate = new Date(now);
@@ -138,8 +137,8 @@ export async function getTodaysPlays(dateStr) {
     amcEarnings: amcResult.earnings,
     bmoEarnings: bmoResult.earnings,
     sources: { amc: amcResult.source, bmo: bmoResult.source },
-    amcLabel: `${getDayName(amcDateStr)} Evening (AMC)`,
-    bmoLabel: `${getDayName(bmoDateStr)} Morning (BMO)`,
+    amcLabel: `${getDayName(amcDateStr)} (${formatShortDate(amcDateStr)}) Evening`,
+    bmoLabel: `${getDayName(bmoDateStr)} (${formatShortDate(bmoDateStr)}) Morning`,
   };
 }
 
@@ -378,14 +377,33 @@ function getDayName(dateStr) {
   return d.toLocaleDateString('en-US', { weekday: 'long' });
 }
 
+function formatShortDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
 function getNextTradingDay(date) {
   const next = new Date(date);
-  const day = next.getDay();
-  if (day === 5) next.setDate(next.getDate() + 3);      // Fri → Mon
-  else if (day === 6) next.setDate(next.getDate() + 2);  // Sat → Mon
-  else if (day === 0) next.setDate(next.getDate() + 1);  // Sun → Mon
-  else next.setDate(next.getDate() + 1);
+  do {
+    next.setDate(next.getDate() + 1);
+  } while (!isTradingDay(next));
   return next;
+}
+
+// US market holidays 2025-2027
+const MARKET_HOLIDAYS = new Set([
+  '2025-01-01','2025-01-20','2025-02-17','2025-04-18','2025-05-26',
+  '2025-06-19','2025-07-04','2025-09-01','2025-11-27','2025-12-25',
+  '2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25',
+  '2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25',
+  '2027-01-01','2027-01-18','2027-02-15','2027-03-26','2027-05-31',
+  '2027-06-18','2027-07-05','2027-09-06','2027-11-25','2027-12-24',
+]);
+
+function isTradingDay(d) {
+  const day = d.getDay();
+  if (day === 0 || day === 6) return false;
+  return !MARKET_HOLIDAYS.has(fmt(d));
 }
 
 function getCurrentTradingDay(date) {

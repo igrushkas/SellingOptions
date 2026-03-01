@@ -7,12 +7,12 @@ import AIAnalysisPanel from './components/AIAnalysisPanel';
 import TodayPlays from './components/TodayPlays';
 import TradeTracker, { AddTradeModal, CloseTradeModal } from './components/TradeTracker';
 import LoginScreen from './components/LoginScreen';
-import MarketSentiment from './components/MarketSentiment';
 import { useAuth } from './hooks/useAuth';
 import { subscribeTrades, addTrade } from './services/tradeService';
 import { fetchTodaysPlaysDirect } from './services/earningsApi';
 import { formatCurrency } from './utils/calculations';
 import { updateTrade } from './services/tradeService';
+import { isMarketOpen, isHalfDay, getMarketStatus, fmt } from './utils/marketCalendar';
 import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database, Clock, ChevronDown, ChevronUp, BarChart3, Sun, Moon, Activity, AlertCircle, Check } from 'lucide-react';
 import './index.css';
 
@@ -74,14 +74,16 @@ function useTimePhase() {
 
   function getPhase() {
     const now = new Date();
-    const day = now.getDay(); // 0=Sun, 6=Sat
-    if (day === 0 || day === 6) return 'off'; // Weekends: market closed
+    const todayStr = fmt(now);
+    if (!isMarketOpen(todayStr)) return 'off'; // Weekend, holiday
+    const halfDay = isHalfDay(todayStr);
     const h = now.getHours();
     const m = now.getMinutes();
     const t = h + m / 60;
+    if (halfDay && t >= 13) return 'off'; // Half day: market closes at 1pm ET
     if (t >= 9 && t < 14) return 'morning';     // 9am–2pm: close trades
     if (t >= 14 && t < 16) return 'afternoon';   // 2pm–4pm: scan & sell
-    return 'off';                                 // before 9am or after 4pm
+    return 'off';
   }
 
   useEffect(() => {
@@ -97,21 +99,25 @@ function OpenTradesAlert({ trades, dimmed, onCloseTrade }) {
   const openTrades = trades.filter(t => t.status === 'open');
 
   return (
-    <div className={`rounded-xl border p-4 transition-opacity ${
+    <div className={`rounded-2xl border p-6 transition-opacity ${
       dimmed
         ? 'border-glass-border bg-dark-700/30 opacity-40'
         : 'border-neon-green/30 bg-neon-green/5 glow-green'
     }`}>
-      <div className="flex items-center gap-2 mb-3">
-        <AlertCircle className={`w-5 h-5 ${dimmed ? 'text-gray-500' : 'text-neon-green'}`} />
-        <h3 className={`text-sm font-bold ${dimmed ? 'text-gray-500' : 'text-neon-green'}`}>
-          Close Open Trades
-        </h3>
-        {!dimmed && (
-          <span className="text-xs text-gray-400 ml-1">
-            — Review positions from last night and close for IV crush profit
-          </span>
-        )}
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dimmed ? 'bg-dark-600' : 'bg-neon-green/15'}`}>
+          <AlertCircle className={`w-5 h-5 ${dimmed ? 'text-gray-500' : 'text-neon-green'}`} />
+        </div>
+        <div>
+          <h3 className={`text-base font-bold ${dimmed ? 'text-gray-500' : 'text-neon-green'}`}>
+            Close Open Trades
+          </h3>
+          {!dimmed && (
+            <p className="text-xs text-gray-400">
+              Review positions from last night and close for IV crush profit
+            </p>
+          )}
+        </div>
       </div>
 
       {openTrades.length === 0 ? (
@@ -318,100 +324,36 @@ function Dashboard({ user, onLogout }) {
     );
   }
 
-  // ── Main Dashboard View ──
+  // ── Main Dashboard View — Sidebar + Content layout ──
+  const statusMsg = (() => {
+    if (timePhase === 'morning') return 'Morning — Close your open trades for IV crush profit';
+    if (timePhase === 'afternoon') return 'Afternoon — Time to scan plays and sell';
+    const status = getMarketStatus(fmt(new Date()));
+    if (!status.open) return `Market closed${status.holiday ? ` — ${status.holiday}` : ''}`;
+    return 'Market closed — Prepare for next session';
+  })();
+
   return (
-    <div className="min-h-screen bg-dark-900">
-      <Header
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        showWeeklyOnly={showWeeklyOnly}
-        setShowWeeklyOnly={setShowWeeklyOnly}
-        totalStocks={allEarnings.length}
-        user={user}
-        onLogout={onLogout}
-      />
-
-      <main className="max-w-[1400px] mx-auto px-6 lg:px-10 pt-4 pb-12 space-y-4">
-        {/* Time-aware status banner */}
-        <div className={`rounded-xl border p-3 flex items-center gap-3 ${
-          timePhase === 'morning' ? 'border-neon-green/30 bg-neon-green/5' :
-          timePhase === 'afternoon' ? 'border-neon-blue/30 bg-neon-blue/5' :
-          'border-glass-border bg-dark-700/30'
-        }`}>
-          <Clock className={`w-5 h-5 ${
-            timePhase === 'morning' ? 'text-neon-green' :
-            timePhase === 'afternoon' ? 'text-neon-blue' :
-            'text-gray-500'
-          }`} />
-          <span className={`text-sm font-semibold ${
-            timePhase === 'morning' ? 'text-neon-green' :
-            timePhase === 'afternoon' ? 'text-neon-blue' :
-            'text-gray-500'
-          }`}>
-            {timePhase === 'morning' && 'Morning — Close your open trades for IV crush profit'}
-            {timePhase === 'afternoon' && 'Afternoon — Time to scan tonight & tomorrow plays and sell'}
-            {timePhase === 'off' && (new Date().getDay() === 0 || new Date().getDay() === 6
-              ? 'Weekend — Previewing Monday evening & Tuesday morning plays'
-              : 'Market closed — Review your positions and prepare for next session')}
-          </span>
-          <span className="ml-auto text-xs text-gray-500">
-            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
+    <div className="min-h-screen bg-dark-900 flex">
+      {/* ── Sidebar ── */}
+      <aside className="hidden lg:flex flex-col w-56 bg-dark-800/60 border-r border-glass-border p-6 sticky top-0 h-screen">
+        <div className="flex items-center gap-2.5 mb-10">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center">
+            <Crosshair className="w-4.5 h-4.5 text-white" />
+          </div>
+          <span className="text-base font-bold gradient-text">Volatility Crusher</span>
         </div>
 
-        {/* Daily Workflow + Strategy */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <Section title="Daily Workflow" icon={Clock} color="blue">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-xs">
-                {[
-                  { step: '1', time: '9:30-10 AM', desc: 'Close positions within first 30 min for IV crush profit.', phase: 'morning' },
-                  { step: '2', time: '10 AM', desc: 'Mark trades as won/lost. Review P&L.', phase: 'morning' },
-                  { step: '3', time: '2-3 PM', desc: 'Review tonight AMC + next day BMO. Pick best setups.', phase: 'afternoon' },
-                  { step: '4', time: '3-3:45 PM', desc: 'Sell options at recommended strikes. Log trades.', phase: 'afternoon' },
-                ].map(({ step, time, desc, phase }) => {
-                  const isActive = timePhase === phase;
-                  return (
-                    <div key={step} className={`flex items-start gap-2 p-2 rounded-lg transition-all ${
-                      isActive ? 'bg-neon-blue/10 border border-neon-blue/20 ring-1 ring-neon-blue/20' : 'opacity-40'
-                    }`}>
-                      <span className={`rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs font-bold ${
-                        isActive ? 'bg-neon-blue/30 text-neon-blue' : 'bg-dark-600 text-gray-500'
-                      }`}>{step}</span>
-                      <div>
-                        <span className={`font-semibold ${isActive ? 'text-white' : 'text-gray-600'}`}>{time}</span>
-                        <p className={`mt-0.5 ${isActive ? 'text-gray-300' : 'text-gray-600'}`}>{desc}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Section>
-          </div>
-          <div className="lg:col-span-1">
-            <Section title="Strategy" icon={Crosshair} color="purple">
-              <p className="text-xs text-gray-300 leading-relaxed">
-                <span className="text-white font-semibold">Volatility Crusher</span> finds stocks where the options market is <span className="text-neon-orange font-semibold">overpricing</span> the expected earnings move. Sell options outside the expected range and collect premium as IV collapses. Each stock gets a <span className="text-neon-green font-semibold">strategy recommendation</span> based on directional bias, IV crush ratio, and win rate.
-              </p>
-            </Section>
-          </div>
-        </div>
-
-        {/* KPI Stats */}
-        <Section title="Stats Overview" icon={BarChart3} color="green" count={allEarnings.length}>
-          <KPICards earnings={allEarnings} />
-        </Section>
-
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-glass-border pb-3">
+        <nav className="space-y-1.5 flex-1">
+          <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 px-3">Main</div>
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === tab.key
-                  ? 'bg-neon-blue/15 text-neon-blue border border-neon-blue/30'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700'
+                  ? 'bg-neon-blue/15 text-neon-blue'
+                  : 'text-gray-400 hover:text-white hover:bg-dark-700/60'
               }`}
             >
               <tab.icon className="w-4 h-4" />
@@ -419,95 +361,184 @@ function Dashboard({ user, onLogout }) {
             </button>
           ))}
 
-          <div className="ml-auto flex items-center gap-2">
-            {dataSources && (
-              <div className="flex items-center gap-1" title="Active data sources">
-                <Database className="w-3 h-3 text-gray-500" />
-                {dataSources.orats && <span className="text-[11px] px-1 py-0.5 rounded bg-neon-purple/10 text-neon-purple font-semibold">ORATS</span>}
-                {dataSources.alphaVantage && <span className="text-[11px] px-1 py-0.5 rounded bg-neon-green/10 text-neon-green font-semibold">AV</span>}
-                {dataSources.finnhub && <span className="text-[11px] px-1 py-0.5 rounded bg-gray-700 text-gray-400 font-semibold">FH</span>}
-              </div>
-            )}
-            <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${badge.cls}`}>
-              {badge.label}
-            </span>
+          <div className="text-[11px] text-gray-500 uppercase tracking-wider mt-8 mb-2 px-3">Controls</div>
+          <div className="px-3 space-y-3">
+            <div>
+              <label className="text-[11px] text-gray-500 uppercase block mb-1">Date</label>
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full bg-dark-700 border border-glass-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-blue"
+              />
+            </div>
+            <button
+              onClick={() => setShowWeeklyOnly(!showWeeklyOnly)}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                showWeeklyOnly
+                  ? 'bg-neon-blue/15 text-neon-blue border border-neon-blue/30'
+                  : 'bg-dark-700 text-gray-400 border border-glass-border'
+              }`}
+            >
+              Weekly Options Only
+            </button>
+          </div>
+        </nav>
+
+        {/* Data source + refresh */}
+        <div className="mt-auto pt-4 border-t border-glass-border space-y-3">
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded-lg border font-semibold ${badge.cls}`}>{badge.label}</span>
             <button
               onClick={fetchLiveEarnings}
               disabled={loading}
-              className="p-1.5 rounded-lg hover:bg-dark-700 text-gray-400 hover:text-white transition-all disabled:opacity-50"
+              className="p-2 rounded-lg hover:bg-dark-700 text-gray-400 hover:text-white transition-all disabled:opacity-50"
               title="Refresh earnings data"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
+          {user && (
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:text-neon-red hover:bg-neon-red/10 transition-all"
+            >
+              Sign out
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Main Content ── */}
+      <div className="flex-1 min-h-screen overflow-y-auto">
+        {/* Mobile header (hidden on desktop where sidebar shows) */}
+        <div className="lg:hidden">
+          <Header
+            dateFilter={dateFilter}
+            setDateFilter={setDateFilter}
+            showWeeklyOnly={showWeeklyOnly}
+            setShowWeeklyOnly={setShowWeeklyOnly}
+            totalStocks={allEarnings.length}
+            user={user}
+            onLogout={onLogout}
+          />
         </div>
 
-        {/* Offline banner */}
-        {dataSource === 'offline' && (
-          <div className="p-3 rounded-lg bg-neon-red/10 border border-neon-red/20 flex items-center gap-3">
-            <WifiOff className="w-4 h-4 text-neon-red shrink-0" />
-            <div className="text-xs">
-              <span className="text-neon-red font-semibold">No live data.</span>
-              <span className="text-gray-400 ml-2">{errorMsg || 'API keys may be missing or server is down.'}</span>
+        <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-8 pb-16 space-y-8">
+          {/* Welcome Banner */}
+          <div className="rounded-2xl bg-gradient-to-r from-dark-700 via-dark-600 to-dark-700 border border-glass-border p-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-white mb-1">
+                  {timePhase === 'morning' ? 'Good morning!' : timePhase === 'afternoon' ? 'Time to trade!' : 'Welcome back!'}
+                </h1>
+                <p className="text-sm text-gray-400">{statusMsg}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <span className="text-xs text-gray-500 block">
+                    {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  <span className="text-lg font-bold text-white">
+                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Workflow Steps — inline in banner */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              {[
+                { step: '1', time: '9:30 AM', desc: 'Close positions', phase: 'morning' },
+                { step: '2', time: '10 AM', desc: 'Mark won/lost', phase: 'morning' },
+                { step: '3', time: '2-3 PM', desc: 'Review plays', phase: 'afternoon' },
+                { step: '4', time: '3:45 PM', desc: 'Sell options', phase: 'afternoon' },
+              ].map(({ step, time, desc, phase }) => {
+                const isActive = timePhase === phase;
+                return (
+                  <div key={step} className={`rounded-xl border px-4 py-3 transition-all ${
+                    isActive
+                      ? 'bg-neon-blue/10 border-neon-blue/30'
+                      : 'bg-dark-800/40 border-glass-border opacity-40'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                        isActive ? 'bg-neon-blue/30 text-neon-blue' : 'bg-dark-600 text-gray-600'
+                      }`}>{step}</span>
+                      <span className={`text-xs font-semibold ${isActive ? 'text-white' : 'text-gray-600'}`}>{time}</span>
+                    </div>
+                    <p className={`text-xs ${isActive ? 'text-gray-300' : 'text-gray-600'}`}>{desc}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        )}
 
-        {/* Today's Plays Tab */}
-        {activeTab === 'today' && (
-          <div className="space-y-4">
-            {/* Morning: Open trades to close */}
-            <OpenTradesAlert
+          {/* KPI Cards */}
+          <KPICards earnings={allEarnings} />
+
+          {/* Offline banner */}
+          {dataSource === 'offline' && (
+            <div className="p-4 rounded-2xl bg-neon-red/10 border border-neon-red/20 flex items-center gap-3">
+              <WifiOff className="w-5 h-5 text-neon-red shrink-0" />
+              <div className="text-sm">
+                <span className="text-neon-red font-semibold">No live data.</span>
+                <span className="text-gray-400 ml-2">{errorMsg || 'API keys may be missing or server is down.'}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Today's Plays Tab */}
+          {activeTab === 'today' && (
+            <div className="space-y-8">
+              <OpenTradesAlert
+                trades={trades}
+                dimmed={timePhase !== 'morning'}
+                onCloseTrade={setClosingTrade}
+              />
+              <TodayPlays
+                amcEarnings={amcStocks}
+                bmoEarnings={bmoStocks}
+                amcLabel={amcLabel}
+                bmoLabel={bmoLabel}
+                onSelectStock={setSelectedStock}
+                onAddTrade={setAddTradeStock}
+                dimPlays={timePhase === 'morning'}
+              />
+            </div>
+          )}
+
+          {/* All Earnings Tab */}
+          {activeTab === 'all' && (
+            <div className="space-y-8">
+              <Section title={`After Market Close (${amcStocks.length})`} icon={Moon} color="purple">
+                <EarningsTable
+                  stocks={amcStocks}
+                  selectedStock={selectedStock}
+                  onSelectStock={setSelectedStock}
+                />
+              </Section>
+              <Section title={`Before Market Open (${bmoStocks.length})`} icon={Sun} color="orange">
+                <EarningsTable
+                  stocks={bmoStocks}
+                  selectedStock={selectedStock}
+                  onSelectStock={setSelectedStock}
+                />
+              </Section>
+            </div>
+          )}
+
+          {/* Trade Journal Tab */}
+          {activeTab === 'journal' && (
+            <TradeTracker
               trades={trades}
-              dimmed={timePhase !== 'morning'}
-              onCloseTrade={setClosingTrade}
+              setTrades={setTrades}
+              addTradeStock={addTradeStock}
+              setAddTradeStock={setAddTradeStock}
             />
-
-            <Section title="Market Sentiment" icon={Activity} color="blue" defaultOpen={false}>
-              <MarketSentiment />
-            </Section>
-            <TodayPlays
-              amcEarnings={amcStocks}
-              bmoEarnings={bmoStocks}
-              amcLabel={amcLabel}
-              bmoLabel={bmoLabel}
-              onSelectStock={setSelectedStock}
-              onAddTrade={setAddTradeStock}
-              dimPlays={timePhase === 'morning'}
-            />
-          </div>
-        )}
-
-        {/* All Earnings Tab */}
-        {activeTab === 'all' && (
-          <div className="space-y-4">
-            <Section title={`Before Market Open (${bmoStocks.length})`} icon={Sun} color="orange">
-              <EarningsTable
-                stocks={bmoStocks}
-                selectedStock={selectedStock}
-                onSelectStock={setSelectedStock}
-              />
-            </Section>
-            <Section title={`After Market Close (${amcStocks.length})`} icon={Moon} color="purple">
-              <EarningsTable
-                stocks={amcStocks}
-                selectedStock={selectedStock}
-                onSelectStock={setSelectedStock}
-              />
-            </Section>
-          </div>
-        )}
-
-        {/* Trade Journal Tab */}
-        {activeTab === 'journal' && (
-          <TradeTracker
-            trades={trades}
-            setTrades={setTrades}
-            addTradeStock={addTradeStock}
-            setAddTradeStock={setAddTradeStock}
-          />
-        )}
-      </main>
+          )}
+        </main>
+      </div>
 
       {addTradeStock && (
         <AddTradeModal
