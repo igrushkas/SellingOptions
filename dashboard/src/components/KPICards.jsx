@@ -70,10 +70,10 @@ export default function KPICards({ earnings }) {
   ];
 
   return (
-    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+    <div className="grid grid-cols-3 md:grid-cols-6 gap-1">
       {cards.map((card) => (
         <Tooltip key={card.label} text={card.tip} position="bottom">
-          <div className={`glass-card p-2.5 ${card.glow} cursor-help`}>
+          <div className={`glass-card p-2.5 w-full ${card.glow} cursor-help`}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-[9px] text-gray-400 uppercase tracking-wider">{card.label}</span>
               <card.icon className={`w-3 h-3 text-${card.color}`} />
