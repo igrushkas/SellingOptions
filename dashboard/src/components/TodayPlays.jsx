@@ -200,7 +200,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
           </div>
         ) : (
           <div className="glass-card p-8 text-center text-gray-500 text-sm">
-            No BMO earnings above $5 for next trading day
+            No BMO earnings above $5 — {bmoLabel || 'next trading day'}
           </div>
         )}
       </div>
@@ -225,7 +225,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
           </div>
         ) : (
           <div className="glass-card p-8 text-center text-gray-500 text-sm">
-            No AMC earnings above $5 today
+            No AMC earnings above $5 — {amcLabel || 'tonight'}
           </div>
         )}
       </div>

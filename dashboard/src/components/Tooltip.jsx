@@ -86,10 +86,11 @@ export default function Tooltip({ text, children, position = 'top' }) {
       {show && createPortal(
         <span
           ref={tooltipRef}
-          className="fixed z-[9999] px-3 py-2 text-[11px] leading-relaxed text-gray-200 bg-dark-800/95 backdrop-blur-sm border border-glass-border rounded-lg shadow-2xl whitespace-normal max-w-[280px] w-max pointer-events-none"
+          className="fixed z-[9999] px-3 py-2 text-[11px] leading-relaxed text-gray-100 rounded-lg shadow-2xl whitespace-normal max-w-[220px] w-max pointer-events-none border border-purple-500/30"
           style={{
             top: `${coords.top}px`,
             left: `${coords.left}px`,
+            background: 'rgba(30, 15, 50, 0.95)',
             ...positionStyles[position],
           }}
         >
