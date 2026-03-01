@@ -3,7 +3,7 @@ import { X, Check, Trash2, TrendingUp, TrendingDown, DollarSign, Target, Award, 
 import { formatCurrency } from '../utils/calculations';
 import { addTrade, updateTrade, deleteTrade } from '../services/tradeService';
 
-function AddTradeModal({ stock, onSave, onClose }) {
+export function AddTradeModal({ stock, onSave, onClose }) {
   const [tradeType, setTradeType] = useState('call');
   const [strike, setStrike] = useState('');
   const [premium, setPremium] = useState('');
@@ -276,10 +276,6 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
 
   return (
     <div className="space-y-4">
-      {/* Trade Modal */}
-      {addTradeStock && (
-        <AddTradeModal stock={addTradeStock} onSave={handleSaveTrade} onClose={() => setAddTradeStock(null)} />
-      )}
       {closingTrade && (
         <CloseTradeModal trade={closingTrade} onSave={handleCloseTrade} onClose={() => setClosingTrade(null)} />
       )}

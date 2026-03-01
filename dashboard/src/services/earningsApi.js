@@ -252,7 +252,7 @@ async function enrichSingle(entry, timing, keys) {
   // Markets typically overprice earnings moves by ~10-20%, so avg * 1.1 is reasonable.
   let impliedMove = 0;
   let ivSource = 'none';
-  if (historicalMoves && historicalMoves.length >= 4) {
+  if (historicalMoves && historicalMoves.length >= 2) {
     const absValues = historicalMoves.map(m => Math.abs(m.actual));
     const avgMove = absValues.reduce((s, v) => s + v, 0) / absValues.length;
     if (avgMove > 0) {

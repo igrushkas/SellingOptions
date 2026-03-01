@@ -280,7 +280,7 @@ async function enrichTicker(entry, keys) {
 
   // 4. Estimate from historical data (last resort — allows strategy engine to work)
   //    Markets typically overprice earnings moves by ~10-20%, so avg * 1.1 is reasonable.
-  if (impliedMove === 0 && historicalMoves && historicalMoves.length >= 4) {
+  if (impliedMove === 0 && historicalMoves && historicalMoves.length >= 2) {
     const absValues = historicalMoves.map(m => Math.abs(m.actual));
     const avgMove = absValues.reduce((s, v) => s + v, 0) / absValues.length;
     if (avgMove > 0) {

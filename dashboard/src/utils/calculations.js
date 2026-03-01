@@ -230,12 +230,14 @@ export function calcNewsSentiment(news) {
  */
 export function getStrategyRecommendation(stock) {
   const { historicalMoves, impliedMove, price } = stock;
-  if (!historicalMoves || historicalMoves.length < 4 || !impliedMove) {
+  if (!historicalMoves || historicalMoves.length < 2 || !impliedMove) {
     return {
       strategy: 'skip',
       strategyName: 'Skip — Insufficient Data',
       legs: [],
-      reason: 'Need at least 4 quarters of earnings history for a reliable recommendation.',
+      reason: !historicalMoves || historicalMoves.length < 2
+        ? `Only ${historicalMoves?.length || 0} quarter(s) of earnings history available. Need at least 2 for a recommendation.`
+        : 'No implied move data available from options pricing.',
       confidence: 0,
       riskLevel: 'unknown',
       sizing: null, exitRules: null,

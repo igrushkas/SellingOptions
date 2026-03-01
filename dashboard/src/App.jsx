@@ -5,11 +5,11 @@ import EarningsTable from './components/EarningsTable';
 import StockDetail from './components/StockDetail';
 import AIAnalysisPanel from './components/AIAnalysisPanel';
 import TodayPlays from './components/TodayPlays';
-import TradeTracker from './components/TradeTracker';
+import TradeTracker, { AddTradeModal } from './components/TradeTracker';
 import LoginScreen from './components/LoginScreen';
 import MarketSentiment from './components/MarketSentiment';
 import { useAuth } from './hooks/useAuth';
-import { subscribeTrades } from './services/tradeService';
+import { subscribeTrades, addTrade } from './services/tradeService';
 import { fetchTodaysPlaysDirect } from './services/earningsApi';
 import { Crosshair, LayoutGrid, BookOpen, RefreshCw, WifiOff, Database } from 'lucide-react';
 import './index.css';
@@ -137,13 +137,6 @@ function Dashboard({ user, onLogout }) {
   const allEarnings = useMemo(() => {
     let data = [...liveAMC, ...liveBMO];
 
-    // Filter out stocks with no useful data (implied move 0 AND no historical moves)
-    data = data.filter(e => {
-      const hasImplied = e.impliedMove > 0;
-      const hasHistory = e.historicalMoves && e.historicalMoves.length > 0;
-      return hasImplied || hasHistory;
-    });
-
     if (showWeeklyOnly) {
       data = data.filter(e => e.hasWeeklyOptions);
     }
@@ -183,15 +176,6 @@ function Dashboard({ user, onLogout }) {
       />
 
       <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-6 pb-12">
-        {/* App Description Banner */}
-        <div className="mb-6 px-5 py-4 rounded-xl bg-gradient-to-r from-neon-blue/10 via-neon-purple/10 to-neon-blue/10 border border-neon-blue/20">
-          <p className="text-sm text-gray-300 leading-relaxed">
-            <span className="text-white font-semibold">Volatility Crusher</span> finds stocks where the options market is <span className="text-neon-orange font-semibold">overpricing</span> the expected earnings move.
-            When implied volatility is higher than the stock actually moves, we sell options outside the expected range and collect premium as IV collapses after the announcement.
-            Each stock gets a <span className="text-neon-green font-semibold">strategy recommendation</span> — strangle, iron condor, one-leg spread, or skip — based on historical directional bias, IV crush ratio, and win rate.
-          </p>
-        </div>
-
         <KPICards earnings={allEarnings} />
 
         {/* Tab Navigation */}
@@ -326,6 +310,15 @@ function Dashboard({ user, onLogout }) {
           />
         )}
       </main>
+
+      {/* Add Trade Modal — rendered at app level so it works from any tab */}
+      {addTradeStock && (
+        <AddTradeModal
+          stock={addTradeStock}
+          onSave={async (trade) => { await addTrade(trade); setAddTradeStock(null); }}
+          onClose={() => setAddTradeStock(null)}
+        />
+      )}
     </div>
   );
 }
