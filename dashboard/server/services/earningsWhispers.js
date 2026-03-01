@@ -112,10 +112,10 @@ export async function getTodaysPlays(dateStr) {
   let amcDate, bmoDate;
 
   if (isWeekend) {
-    // On weekends: look forward to Monday (both BMO and AMC)
+    // On weekends: AMC = Monday evening, BMO = Tuesday morning (next trading day after Monday)
     const monday = getNextTradingDay(now);
-    bmoDate = monday;
-    amcDate = new Date(monday); // Monday evening
+    amcDate = new Date(monday);
+    bmoDate = getNextTradingDay(monday);
   } else {
     // Weekday: AMC = today evening, BMO = next trading day morning
     amcDate = new Date(now);

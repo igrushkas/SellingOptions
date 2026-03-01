@@ -74,6 +74,8 @@ function useTimePhase() {
 
   function getPhase() {
     const now = new Date();
+    const day = now.getDay(); // 0=Sun, 6=Sat
+    if (day === 0 || day === 6) return 'off'; // Weekends: market closed
     const h = now.getHours();
     const m = now.getMinutes();
     const t = h + m / 60;
@@ -348,7 +350,9 @@ function Dashboard({ user, onLogout }) {
           }`}>
             {timePhase === 'morning' && 'Morning — Close your open trades for IV crush profit'}
             {timePhase === 'afternoon' && 'Afternoon — Time to scan tonight & tomorrow plays and sell'}
-            {timePhase === 'off' && 'Market closed — Review your positions and prepare for next session'}
+            {timePhase === 'off' && (new Date().getDay() === 0 || new Date().getDay() === 6
+              ? 'Weekend — Previewing Monday evening & Tuesday morning plays'
+              : 'Market closed — Review your positions and prepare for next session')}
           </span>
           <span className="ml-auto text-xs text-gray-500">
             {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
