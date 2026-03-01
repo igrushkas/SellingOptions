@@ -169,7 +169,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
   );
 }
 
-export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabel, bmoLabel, onSelectStock, onAddTrade }) {
+export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabel, bmoLabel, onSelectStock, onAddTrade, dimPlays = false }) {
   const [showBMO, setShowBMO] = useState(true);
   const [showAMC, setShowAMC] = useState(true);
 
@@ -187,41 +187,8 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
 
   return (
     <div className="space-y-5">
-      {/* BMO Container — lighter background */}
-      <div className="rounded-2xl bg-dark-750/60 border border-neon-orange/10 p-5">
-        <button
-          onClick={() => setShowBMO(!showBMO)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-orange/10 border border-neon-orange/20 hover:bg-neon-orange/15 transition-colors"
-        >
-          <Sun className="w-5 h-5 text-neon-orange" />
-          <h2 className="text-base font-bold text-neon-orange">{bmoLabel || "Next Trading Day Morning (BMO)"}</h2>
-          <span className="text-xs text-gray-400 hidden md:inline">
-            — Sell options before close, IV crush at open
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs px-2 py-0.5 rounded-full bg-neon-orange/20 text-neon-orange border border-neon-orange/30 font-semibold">
-              {tomorrowBMO.length}
-            </span>
-            {showBMO ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-          </div>
-        </button>
-        {showBMO && (
-          tomorrowBMO.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
-              {tomorrowBMO.map(stock => (
-                <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
-              ))}
-            </div>
-          ) : (
-            <div className="p-6 text-center text-gray-500 text-sm mt-3">
-              No BMO earnings above $5 — {bmoLabel || 'next trading day'}
-            </div>
-          )
-        )}
-      </div>
-
-      {/* AMC Container */}
-      <div className="rounded-2xl bg-dark-800/40 border border-neon-purple/10 p-5">
+      {/* AMC Container — Tonight's evening trades first */}
+      <div className={`rounded-2xl bg-dark-800/40 border border-neon-purple/10 p-5 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
         <button
           onClick={() => setShowAMC(!showAMC)}
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-purple/10 border border-neon-purple/20 hover:bg-neon-purple/15 transition-colors"
@@ -248,6 +215,39 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
           ) : (
             <div className="p-6 text-center text-gray-500 text-sm mt-3">
               No AMC earnings above $5 — {amcLabel || 'tonight'}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* BMO Container — Next trading day morning */}
+      <div className={`rounded-2xl bg-dark-750/60 border border-neon-orange/10 p-5 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
+        <button
+          onClick={() => setShowBMO(!showBMO)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-orange/10 border border-neon-orange/20 hover:bg-neon-orange/15 transition-colors"
+        >
+          <Sun className="w-5 h-5 text-neon-orange" />
+          <h2 className="text-base font-bold text-neon-orange">{bmoLabel || "Next Trading Day Morning (BMO)"}</h2>
+          <span className="text-xs text-gray-400 hidden md:inline">
+            — Sell options before close, IV crush at open
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-neon-orange/20 text-neon-orange border border-neon-orange/30 font-semibold">
+              {tomorrowBMO.length}
+            </span>
+            {showBMO ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+          </div>
+        </button>
+        {showBMO && (
+          tomorrowBMO.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+              {tomorrowBMO.map(stock => (
+                <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 text-center text-gray-500 text-sm mt-3">
+              No BMO earnings above $5 — {bmoLabel || 'next trading day'}
             </div>
           )
         )}

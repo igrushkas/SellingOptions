@@ -136,7 +136,7 @@ export function AddTradeModal({ stock, onSave, onClose }) {
   );
 }
 
-function CloseTradeModal({ trade, onClose, onSave }) {
+export function CloseTradeModal({ trade, onClose, onSave }) {
   const [closedPrice, setClosedPrice] = useState('');
   const [result, setResult] = useState('won');
 
