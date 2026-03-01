@@ -207,20 +207,20 @@ async function enrichTicker(entry, keys) {
   }
 
   // 2. Yahoo Finance: actual stock price moves (free, no API key, unlimited)
-  //    Uses Finnhub earnings dates + Yahoo chart prices (no auth needed)
+  //    Yahoo chart with &events=earnings provides both price history AND earnings dates,
+  //    so this works even when Finnhub EPS surprises returns empty.
+  //    Finnhub dates are passed as supplementary data to fill gaps.
   if (!historicalMoves || historicalMoves.length < 4) {
-    const finnhubDates = (finnhubSurprises || []).map(s => s.date).filter(Boolean);
-    if (finnhubDates.length > 0) {
-      try {
-        const yahooMoves = await fetchHistoricalEarningsMoves(ticker, finnhubDates);
-        if (yahooMoves && yahooMoves.length > (historicalMoves?.length || 0)) {
-          historicalMoves = yahooMoves;
-          historySource = 'yahoo';
-          console.log(`[Orchestrator] ${ticker}: Yahoo historical price moves (${historicalMoves.length} quarters)`);
-        }
-      } catch {
-        // Yahoo failed, fall through to Finnhub EPS
+    try {
+      const finnhubDates = (finnhubSurprises || []).map(s => s.date).filter(Boolean);
+      const yahooMoves = await fetchHistoricalEarningsMoves(ticker, finnhubDates.length > 0 ? finnhubDates : undefined);
+      if (yahooMoves && yahooMoves.length > (historicalMoves?.length || 0)) {
+        historicalMoves = yahooMoves;
+        historySource = 'yahoo';
+        console.log(`[Orchestrator] ${ticker}: Yahoo historical price moves (${historicalMoves.length} quarters)`);
       }
+    } catch {
+      // Yahoo failed, fall through to Finnhub EPS
     }
   }
 

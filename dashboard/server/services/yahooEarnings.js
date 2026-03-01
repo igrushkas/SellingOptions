@@ -28,31 +28,40 @@ const CACHE_TTL = 24 * 60 * 60 * 1000;
  * Fetch actual stock price moves on historical earnings dates.
  *
  * @param {string} ticker - Stock ticker symbol
- * @param {string[]} earningsDates - Array of earnings date strings (YYYY-MM-DD) from Finnhub
+ * @param {string[]} [externalDates] - Optional array of earnings date strings (YYYY-MM-DD) from Finnhub.
+ *   If omitted or empty, earnings dates are extracted from Yahoo's chart events.
  * @returns {Array<{quarter, actual, direction, date}>} — same format as ORATS
  */
-export async function fetchHistoricalEarningsMoves(ticker, earningsDates) {
-  if (!earningsDates || earningsDates.length === 0) {
-    return [];
-  }
-
+export async function fetchHistoricalEarningsMoves(ticker, externalDates) {
   const cacheKey = `yahoo-hist:${ticker}`;
   if (cache[cacheKey] && Date.now() - cache[cacheKey].fetchedAt < CACHE_TTL) {
     return cache[cacheKey].data;
   }
 
   try {
-    const priceHistory = await fetchPriceHistory(ticker);
+    const { prices, earningsDates: yahooDates } = await fetchPriceHistory(ticker);
 
-    if (!priceHistory || priceHistory.length === 0) {
+    if (!prices || prices.length === 0) {
+      return [];
+    }
+
+    // Merge external dates (from Finnhub) with Yahoo's chart earnings events.
+    // Yahoo events are the primary source; external dates fill gaps.
+    const allDates = new Set([
+      ...(yahooDates || []),
+      ...(externalDates || []).filter(Boolean),
+    ]);
+
+    if (allDates.size === 0) {
+      console.warn(`[YahooEarnings] ${ticker}: No earnings dates from Yahoo chart or external source`);
       return [];
     }
 
     // Calculate actual stock move for each earnings date
-    const moves = calculateEarningsMoves(earningsDates, priceHistory);
+    const moves = calculateEarningsMoves([...allDates], prices);
 
     cache[cacheKey] = { data: moves, fetchedAt: Date.now() };
-    console.log(`[YahooEarnings] ${ticker}: ${moves.length} historical earnings moves from chart data`);
+    console.log(`[YahooEarnings] ${ticker}: ${moves.length} historical earnings moves (Yahoo dates: ${yahooDates?.length || 0}, external: ${externalDates?.length || 0})`);
     return moves;
   } catch (err) {
     console.warn(`[YahooEarnings] Failed for ${ticker}: ${err.message}`);
@@ -61,21 +70,26 @@ export async function fetchHistoricalEarningsMoves(ticker, earningsDates) {
 }
 
 /**
- * Get 5 years of daily prices from Yahoo Finance chart endpoint.
+ * Get 5 years of daily prices AND earnings event dates from Yahoo Finance chart endpoint.
  * Uses cookie/crumb auth via shared session.
+ *
+ * The `events=earnings` parameter causes Yahoo to include historical earnings dates
+ * inside chart.result[0].events.earnings, so we no longer depend on Finnhub for dates.
+ *
+ * @returns {{ prices: Array, earningsDates: string[] }}
  */
 async function fetchPriceHistory(ticker) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y&events=earnings`;
 
   const data = await fetchYahooJSON(url);
   const result = data?.chart?.result?.[0];
-  if (!result) return null;
+  if (!result) return { prices: null, earningsDates: [] };
 
   const timestamps = result.timestamp || [];
   const closes = result.indicators?.quote?.[0]?.close || [];
   const opens = result.indicators?.quote?.[0]?.open || [];
 
-  if (timestamps.length === 0) return null;
+  if (timestamps.length === 0) return { prices: null, earningsDates: [] };
 
   const prices = [];
   for (let i = 0; i < timestamps.length; i++) {
@@ -89,7 +103,21 @@ async function fetchPriceHistory(ticker) {
     });
   }
 
-  return prices;
+  // Extract earnings dates from chart events (if available)
+  const earningsDates = [];
+  const earningsEvents = result.events?.earnings;
+  if (earningsEvents) {
+    for (const event of Object.values(earningsEvents)) {
+      if (event.date) {
+        const d = new Date(event.date * 1000);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        earningsDates.push(dateStr);
+      }
+    }
+    earningsDates.sort((a, b) => b.localeCompare(a)); // newest first
+  }
+
+  return { prices, earningsDates };
 }
 
 /**
