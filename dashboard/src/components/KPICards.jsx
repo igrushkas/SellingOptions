@@ -75,11 +75,11 @@ export default function KPICards({ earnings }) {
         <Tooltip key={card.label} text={card.tip} position="bottom">
           <div className={`glass-card p-2.5 w-full ${card.glow} cursor-help`}>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] text-gray-400 uppercase tracking-wider">{card.label}</span>
+              <span className="text-[11px] text-gray-400 uppercase tracking-wider">{card.label}</span>
               <card.icon className={`w-3 h-3 text-${card.color}`} />
             </div>
             <div className={`text-lg font-bold text-${card.color}`}>{card.value}</div>
-            <p className="text-[9px] text-gray-500 mt-0.5">{card.subtitle}</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">{card.subtitle}</p>
           </div>
         </Tooltip>
       ))}

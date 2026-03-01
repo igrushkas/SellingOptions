@@ -86,7 +86,7 @@ function SafeZoneVisual({ stock }) {
         <div className="absolute h-full bg-neon-orange/20 border-x border-neon-orange/50"
           style={{ left: `${Math.max(0, 50 - stock.impliedMove * 2.5)}%`, right: `${Math.max(0, 50 - stock.impliedMove * 2.5)}%` }} />
         <div className="absolute left-1/2 h-full w-0.5 bg-white/50" />
-        <div className="absolute left-1/2 top-1 -translate-x-1/2 text-[10px] font-bold text-white bg-dark-600 px-1.5 py-0.5 rounded">
+        <div className="absolute left-1/2 top-1 -translate-x-1/2 text-xs font-bold text-white bg-dark-600 px-1.5 py-0.5 rounded">
           {formatCurrency(stock.price)}
         </div>
       </div>
@@ -96,9 +96,9 @@ function SafeZoneVisual({ stock }) {
           <div key={label} className={`${bgColor} border ${borderColor} rounded-lg p-2`}>
             <div className="flex items-center gap-1 mb-1">
               <Shield className={`w-3 h-3 text-${color}`} />
-              <span className={`text-[10px] font-bold text-${color} uppercase`}>{label}</span>
+              <span className={`text-xs font-bold text-${color} uppercase`}>{label}</span>
             </div>
-            <div className="space-y-0.5 text-[10px]">
+            <div className="space-y-0.5 text-xs">
               <div className="flex justify-between"><span className="text-gray-400">Call:</span><span className="text-white font-semibold">{formatCurrency(zone.high)}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Put:</span><span className="text-white font-semibold">{formatCurrency(zone.low)}</span></div>
               <div className="flex justify-between"><span className="text-gray-400">Win:</span><span className={`font-bold text-${color}`}>{zone.winRate.toFixed(0)}%</span></div>
@@ -122,12 +122,12 @@ function PredictionCard({ stock }) {
         Move Prediction
       </h4>
       <div className="grid grid-cols-3 gap-2">
-        <div><span className="text-[10px] text-gray-400">Predicted</span><div className="text-sm font-bold text-white">±{prediction.predictedRange}%</div></div>
-        <div><span className="text-[10px] text-gray-400">Implied</span><div className="text-sm font-bold text-neon-orange">±{prediction.impliedMove}%</div></div>
-        <div><span className="text-[10px] text-gray-400">Crush</span><div className={`text-sm font-bold ${prediction.crushRatio >= 1.2 ? 'text-neon-green' : 'text-gray-300'}`}>{prediction.crushRatio}x</div></div>
-        <div><span className="text-[10px] text-gray-400">Win Rate</span><div className={`text-sm font-bold ${prediction.winRate >= 75 ? 'text-neon-green' : 'text-neon-orange'}`}>{prediction.winRate}%</div></div>
-        <div><span className="text-[10px] text-gray-400">Bias</span><div className={`text-sm font-bold ${prediction.bias === 'bullish' ? 'text-neon-green' : prediction.bias === 'bearish' ? 'text-neon-red' : 'text-gray-300'}`}>{prediction.bias.charAt(0).toUpperCase() + prediction.bias.slice(1)}</div></div>
-        <div><span className="text-[10px] text-gray-400">Signal</span><div className={`text-sm font-bold uppercase ${signalColors[prediction.signal]}`}>{prediction.signal}</div></div>
+        <div><span className="text-xs text-gray-400">Predicted</span><div className="text-sm font-bold text-white">±{prediction.predictedRange}%</div></div>
+        <div><span className="text-xs text-gray-400">Implied</span><div className="text-sm font-bold text-neon-orange">±{prediction.impliedMove}%</div></div>
+        <div><span className="text-xs text-gray-400">Crush</span><div className={`text-sm font-bold ${prediction.crushRatio >= 1.2 ? 'text-neon-green' : 'text-gray-300'}`}>{prediction.crushRatio}x</div></div>
+        <div><span className="text-xs text-gray-400">Win Rate</span><div className={`text-sm font-bold ${prediction.winRate >= 75 ? 'text-neon-green' : 'text-neon-orange'}`}>{prediction.winRate}%</div></div>
+        <div><span className="text-xs text-gray-400">Bias</span><div className={`text-sm font-bold ${prediction.bias === 'bullish' ? 'text-neon-green' : prediction.bias === 'bearish' ? 'text-neon-red' : 'text-gray-300'}`}>{prediction.bias.charAt(0).toUpperCase() + prediction.bias.slice(1)}</div></div>
+        <div><span className="text-xs text-gray-400">Signal</span><div className={`text-sm font-bold uppercase ${signalColors[prediction.signal]}`}>{prediction.signal}</div></div>
       </div>
     </div>
   );
@@ -146,11 +146,11 @@ function NewsPanel({ stock }) {
           <Newspaper className="w-3.5 h-3.5 text-neon-blue" />
           News
         </h4>
-        <span className={`text-[10px] font-bold ${sentimentColor}`}>{sentimentLabel}</span>
+        <span className={`text-xs font-bold ${sentimentColor}`}>{sentimentLabel}</span>
       </div>
       <div className="space-y-1 max-h-32 overflow-y-auto">
         {stock.news.map((item, i) => (
-          <div key={i} className="flex items-start gap-1.5 text-[10px]">
+          <div key={i} className="flex items-start gap-1.5 text-xs">
             <span className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${
               item.sentiment === 'positive' ? 'bg-neon-green' : item.sentiment === 'negative' ? 'bg-neon-red' : 'bg-gray-400'
             }`} />
@@ -183,7 +183,7 @@ function StatsRow({ stock }) {
     <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5">
       {stats.map(s => (
         <div key={s.label} className="bg-dark-700/50 rounded px-2 py-1.5 text-center">
-          <div className="text-[9px] text-gray-500 uppercase">{s.label}</div>
+          <div className="text-[11px] text-gray-500 uppercase">{s.label}</div>
           <div className="text-xs font-semibold text-white">{s.value}</div>
         </div>
       ))}
@@ -199,17 +199,17 @@ function OratsInsights({ stock }) {
   return (
     <div className="glass-card p-3">
       <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-1.5">
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-neon-purple/20 text-neon-purple font-bold">ORATS</span>
+        <span className="text-[11px] px-1.5 py-0.5 rounded bg-neon-purple/20 text-neon-purple font-bold">ORATS</span>
         IV Crush Analytics
       </h4>
       <div className="grid grid-cols-3 gap-2 text-xs">
-        <div><span className="text-[10px] text-gray-400">Analyzed</span><div className="font-bold text-white">{stats.totalEarnings}</div></div>
-        <div><span className="text-[10px] text-gray-400">IV Overstated</span><div className={`font-bold ${stats.winRate >= 70 ? 'text-neon-green' : 'text-neon-orange'}`}>{stats.winRate}%</div></div>
-        <div><span className="text-[10px] text-gray-400">Avg Crush</span><div className={`font-bold ${stats.avgCrushPct > 0 ? 'text-neon-green' : 'text-neon-red'}`}>{stats.avgCrushPct > 0 ? '+' : ''}{stats.avgCrushPct}%</div></div>
-        <div><span className="text-[10px] text-gray-400">Avg Implied</span><div className="font-bold text-neon-orange">±{stats.avgImpliedMove}%</div></div>
-        <div><span className="text-[10px] text-gray-400">Avg Actual</span><div className="font-bold text-white">±{stats.avgActualMove}%</div></div>
+        <div><span className="text-xs text-gray-400">Analyzed</span><div className="font-bold text-white">{stats.totalEarnings}</div></div>
+        <div><span className="text-xs text-gray-400">IV Overstated</span><div className={`font-bold ${stats.winRate >= 70 ? 'text-neon-green' : 'text-neon-orange'}`}>{stats.winRate}%</div></div>
+        <div><span className="text-xs text-gray-400">Avg Crush</span><div className={`font-bold ${stats.avgCrushPct > 0 ? 'text-neon-green' : 'text-neon-red'}`}>{stats.avgCrushPct > 0 ? '+' : ''}{stats.avgCrushPct}%</div></div>
+        <div><span className="text-xs text-gray-400">Avg Implied</span><div className="font-bold text-neon-orange">±{stats.avgImpliedMove}%</div></div>
+        <div><span className="text-xs text-gray-400">Avg Actual</span><div className="font-bold text-white">±{stats.avgActualMove}%</div></div>
         {stock.historySource === 'orats' && (
-          <div><span className="text-[10px] text-gray-400">Source</span><div className="text-[10px] text-neon-purple font-semibold">Actual moves</div></div>
+          <div><span className="text-xs text-gray-400">Source</span><div className="text-xs text-neon-purple font-semibold">Actual moves</div></div>
         )}
       </div>
     </div>
@@ -243,31 +243,31 @@ function TastytradeMetrics({ ticker }) {
   return (
     <div className="glass-card p-3">
       <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-1.5">
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-neon-blue/20 text-neon-blue font-bold">TASTY</span>
+        <span className="text-[11px] px-1.5 py-0.5 rounded bg-neon-blue/20 text-neon-blue font-bold">TASTY</span>
         <Activity className="w-3 h-3 text-neon-blue" />
         IV Metrics
       </h4>
       <div className="grid grid-cols-3 gap-2 text-xs">
         {ivRankNum != null && (
-          <div><span className="text-[10px] text-gray-400">IV Rank</span><div className={`font-bold ${ivColor(ivRankNum)}`}>{ivRankNum.toFixed(1)}%</div></div>
+          <div><span className="text-xs text-gray-400">IV Rank</span><div className={`font-bold ${ivColor(ivRankNum)}`}>{ivRankNum.toFixed(1)}%</div></div>
         )}
         {ivPctNum != null && (
-          <div><span className="text-[10px] text-gray-400">IV Pctl</span><div className={`font-bold ${ivColor(ivPctNum)}`}>{ivPctNum.toFixed(1)}%</div></div>
+          <div><span className="text-xs text-gray-400">IV Pctl</span><div className={`font-bold ${ivColor(ivPctNum)}`}>{ivPctNum.toFixed(1)}%</div></div>
         )}
         {metrics.iv30Day && (
-          <div><span className="text-[10px] text-gray-400">IV 30d</span><div className="font-bold text-white">{(parseFloat(metrics.iv30Day) * 100).toFixed(1)}%</div></div>
+          <div><span className="text-xs text-gray-400">IV 30d</span><div className="font-bold text-white">{(parseFloat(metrics.iv30Day) * 100).toFixed(1)}%</div></div>
         )}
         {metrics.hv30Day && (
-          <div><span className="text-[10px] text-gray-400">HV 30d</span><div className="font-bold text-gray-300">{(parseFloat(metrics.hv30Day) * 100).toFixed(1)}%</div></div>
+          <div><span className="text-xs text-gray-400">HV 30d</span><div className="font-bold text-gray-300">{(parseFloat(metrics.hv30Day) * 100).toFixed(1)}%</div></div>
         )}
         {metrics.ivHvDiff30Day && (
-          <div><span className="text-[10px] text-gray-400">IV-HV</span><div className={`font-bold ${parseFloat(metrics.ivHvDiff30Day) > 0 ? 'text-neon-green' : 'text-neon-red'}`}>{parseFloat(metrics.ivHvDiff30Day) > 0 ? '+' : ''}{(parseFloat(metrics.ivHvDiff30Day) * 100).toFixed(1)}%</div></div>
+          <div><span className="text-xs text-gray-400">IV-HV</span><div className={`font-bold ${parseFloat(metrics.ivHvDiff30Day) > 0 ? 'text-neon-green' : 'text-neon-red'}`}>{parseFloat(metrics.ivHvDiff30Day) > 0 ? '+' : ''}{(parseFloat(metrics.ivHvDiff30Day) * 100).toFixed(1)}%</div></div>
         )}
         {metrics.liquidityRating != null && (
-          <div><span className="text-[10px] text-gray-400">Liquidity</span><div className={`font-bold ${metrics.liquidityRating >= 3 ? 'text-neon-green' : 'text-neon-red'}`}>{metrics.liquidityRating}/5</div></div>
+          <div><span className="text-xs text-gray-400">Liquidity</span><div className={`font-bold ${metrics.liquidityRating >= 3 ? 'text-neon-green' : 'text-neon-red'}`}>{metrics.liquidityRating}/5</div></div>
         )}
         {metrics.beta && (
-          <div><span className="text-[10px] text-gray-400">Beta</span><div className="font-bold text-white">{parseFloat(metrics.beta).toFixed(2)}</div></div>
+          <div><span className="text-xs text-gray-400">Beta</span><div className="font-bold text-white">{parseFloat(metrics.beta).toFixed(2)}</div></div>
         )}
       </div>
     </div>
@@ -297,11 +297,11 @@ function StrategyTradeCard({ stock }) {
           Strategy
         </h4>
         <div className="flex items-center gap-1.5">
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${risk.bg} ${risk.text} border ${risk.border}`}>
+          <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${risk.bg} ${risk.text} border ${risk.border}`}>
             {risk.label}
           </span>
           {rec.confidence > 0 && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-neon-purple/10 text-neon-purple border border-neon-purple/30">
+            <span className="text-[11px] px-1.5 py-0.5 rounded-full font-semibold bg-neon-purple/10 text-neon-purple border border-neon-purple/30">
               {rec.confidence}%
             </span>
           )}
@@ -330,7 +330,7 @@ function StrategyTradeCard({ stock }) {
                 isSell ? 'bg-neon-orange/10 border border-neon-orange/20' : 'bg-dark-700/50 border border-glass-border'
               }`}>
                 <div className="flex items-center gap-1.5">
-                  <span className={`text-[9px] px-1 py-0.5 rounded font-bold ${
+                  <span className={`text-[11px] px-1 py-0.5 rounded font-bold ${
                     isSell ? 'bg-neon-orange/20 text-neon-orange' : 'bg-gray-700 text-gray-400'
                   }`}>{isSell ? 'SELL' : 'BUY'}</span>
                   <span className="text-white font-semibold">{leg.qty || 1} {instrument}</span>
@@ -345,15 +345,15 @@ function StrategyTradeCard({ stock }) {
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-glass-border">
         <div className="text-center">
-          <div className="text-[9px] text-gray-500">IV Crush</div>
+          <div className="text-[11px] text-gray-500">IV Crush</div>
           <div className={`text-xs font-bold ${rec.crushRatio >= 1.2 ? 'text-neon-green' : 'text-gray-300'}`}>{rec.crushRatio?.toFixed(2) || '—'}x</div>
         </div>
         <div className="text-center">
-          <div className="text-[9px] text-gray-500">Win Rate</div>
+          <div className="text-[11px] text-gray-500">Win Rate</div>
           <div className={`text-xs font-bold ${rec.winRate >= 75 ? 'text-neon-green' : 'text-neon-orange'}`}>{rec.winRate?.toFixed(0) || '—'}%</div>
         </div>
         <div className="text-center">
-          <div className="text-[9px] text-gray-500">Bias</div>
+          <div className="text-[11px] text-gray-500">Bias</div>
           <div className={`text-xs font-bold ${rec.bias === 'bullish' ? 'text-neon-green' : rec.bias === 'bearish' ? 'text-neon-red' : 'text-gray-300'}`}>
             {rec.bias ? rec.bias.charAt(0).toUpperCase() + rec.bias.slice(1) : '—'}
           </div>
@@ -375,21 +375,21 @@ function ReasoningCard({ stock }) {
       {/* Directional Bias */}
       {rec.downPct != null && !isSkip && (
         <div className="mb-2">
-          <span className="text-[9px] text-gray-500 uppercase block mb-1">Directional Bias (8Q)</span>
+          <span className="text-[11px] text-gray-500 uppercase block mb-1">Directional Bias (8Q)</span>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-neon-red font-semibold flex items-center gap-0.5">
+            <span className="text-xs text-neon-red font-semibold flex items-center gap-0.5">
               <ArrowDown className="w-2.5 h-2.5" />{Math.round(rec.downPct * 100)}%
             </span>
             <div className="flex-1 h-2 bg-dark-600 rounded-full overflow-hidden flex">
               <div className="bg-neon-red/70 h-full" style={{ width: `${rec.downPct * 100}%` }} />
               <div className="bg-neon-green/70 h-full" style={{ width: `${rec.upPct * 100}%` }} />
             </div>
-            <span className="text-[10px] text-neon-green font-semibold flex items-center gap-0.5">
+            <span className="text-xs text-neon-green font-semibold flex items-center gap-0.5">
               {Math.round(rec.upPct * 100)}%<ArrowUp className="w-2.5 h-2.5" />
             </span>
           </div>
           {rec.avgDownMag > 0 && rec.avgUpMag > 0 && (
-            <div className="flex justify-between mt-0.5 text-[9px] text-gray-500">
+            <div className="flex justify-between mt-0.5 text-[11px] text-gray-500">
               <span>Avg: -{rec.avgDownMag.toFixed(1)}%</span>
               <span>Avg: +{rec.avgUpMag.toFixed(1)}%</span>
             </div>
@@ -399,7 +399,7 @@ function ReasoningCard({ stock }) {
 
       {/* Reasoning */}
       <div className="bg-dark-700/30 rounded-lg p-2">
-        <p className="text-[10px] text-gray-300 leading-relaxed">{rec.reason}</p>
+        <p className="text-xs text-gray-300 leading-relaxed">{rec.reason}</p>
       </div>
     </div>
   );
@@ -419,24 +419,24 @@ function SizingCard({ stock }) {
         {/* Sizing */}
         <div className="bg-dark-700/30 rounded-lg p-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] text-gray-500 uppercase">Position Size</span>
+            <span className="text-[11px] text-gray-500 uppercase">Position Size</span>
             <span className="text-sm font-bold text-neon-purple">{rec.sizing.accountPct}%</span>
           </div>
-          <div className="text-[9px] text-gray-500">Kelly: {rec.sizing.kellyFull}% (using quarter)</div>
+          <div className="text-[11px] text-gray-500">Kelly: {rec.sizing.kellyFull}% (using quarter)</div>
         </div>
 
         {/* Exit Rules */}
         <div className="bg-dark-700/30 rounded-lg p-2 space-y-1">
-          <span className="text-[9px] text-gray-500 uppercase block">Exit Rules</span>
-          <div className="flex justify-between text-[10px]">
+          <span className="text-[11px] text-gray-500 uppercase block">Exit Rules</span>
+          <div className="flex justify-between text-xs">
             <span className="text-gray-400">Profit:</span>
             <span className="text-neon-green font-semibold">{rec.exitRules.profitTarget}</span>
           </div>
-          <div className="flex justify-between text-[10px]">
+          <div className="flex justify-between text-xs">
             <span className="text-gray-400">Stop:</span>
             <span className="text-neon-red font-semibold">{rec.exitRules.stopLoss}</span>
           </div>
-          <div className="flex justify-between text-[10px]">
+          <div className="flex justify-between text-xs">
             <span className="text-gray-400">Time:</span>
             <span className="text-white font-semibold">10 AM ET next day</span>
           </div>
@@ -453,9 +453,9 @@ export default function StockDetail({ stock, onClose, onAddTrade }) {
       {/* Back Button */}
       <button
         onClick={onClose}
-        className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-1"
+        className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-dark-700/80 border border-glass-border text-sm font-semibold text-gray-300 hover:text-white hover:bg-neon-blue/15 hover:border-neon-blue/30 transition-all"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-5 h-5" />
         Back to Dashboard
       </button>
 
@@ -470,11 +470,11 @@ export default function StockDetail({ stock, onClose, onAddTrade }) {
               <h3 className="text-lg font-bold text-white">{stock.ticker} <span className="text-gray-400 text-sm font-normal">— {stock.company}</span></h3>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-white font-semibold">{formatCurrency(stock.price)}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neon-orange/15 text-neon-orange border border-neon-orange/30">
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-neon-orange/15 text-neon-orange border border-neon-orange/30">
                   ±{stock.impliedMove}% Expected
                 </span>
                 {stock.ivSource && stock.ivSource !== 'none' && (
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
                     stock.ivSource === 'orats' ? 'bg-neon-purple/15 text-neon-purple border border-neon-purple/30' :
                     stock.ivSource === 'alpha_vantage' ? 'bg-neon-green/15 text-neon-green border border-neon-green/30' :
                     'bg-gray-700 text-gray-400'
@@ -482,7 +482,7 @@ export default function StockDetail({ stock, onClose, onAddTrade }) {
                     {stock.ivSource === 'orats' ? 'ORATS' : stock.ivSource === 'alpha_vantage' ? 'Alpha Vantage' : stock.ivSource}
                   </span>
                 )}
-                <span className="text-[10px] text-gray-500">{stock.timing === 'BMO' ? 'BMO' : 'AMC'}</span>
+                <span className="text-xs text-gray-500">{stock.timing === 'BMO' ? 'BMO' : 'AMC'}</span>
               </div>
             </div>
           </div>
@@ -520,10 +520,10 @@ export default function StockDetail({ stock, onClose, onAddTrade }) {
           <div className="flex items-center justify-between mb-1">
             <h4 className="text-xs font-semibold text-white">Historical Earnings Moves</h4>
             {stock.historySource === 'orats' && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-neon-purple/15 text-neon-purple font-bold">ORATS</span>
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-neon-purple/15 text-neon-purple font-bold">ORATS</span>
             )}
           </div>
-          <p className="text-[9px] text-gray-500 mb-1">
+          <p className="text-[11px] text-gray-500 mb-1">
             Orange dashed = implied move (±{stock.impliedMove}%). <span className="text-yellow-400">Yellow line</span> = Friday close after earnings.
           </p>
           <HistoricalMovesChart historicalMoves={stock.historicalMoves} impliedMove={stock.impliedMove} />

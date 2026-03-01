@@ -37,7 +37,7 @@ function Section({ title, icon: Icon, count, color = 'gray', defaultOpen = true,
         {Icon && <Icon className={`w-4 h-4 ${c.text}`} />}
         <span className={`text-sm font-bold ${c.text}`}>{title}</span>
         {count != null && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 font-semibold">{count}</span>
+          <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 font-semibold">{count}</span>
         )}
         <div className="ml-auto">
           {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-500" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />}
@@ -247,7 +247,7 @@ function Dashboard({ user, onLogout }) {
                   { step: '4', time: '3-3:45 PM ET', desc: 'Sell options at recommended strikes. Log trades.' },
                 ].map(({ step, time, desc }) => (
                   <div key={step} className="flex items-start gap-2">
-                    <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold">{step}</span>
+                    <span className="bg-neon-blue/20 text-neon-blue rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs font-bold">{step}</span>
                     <div>
                       <span className="text-white font-semibold">{time}</span>
                       <p className="text-gray-400 mt-0.5">{desc}</p>
@@ -292,12 +292,12 @@ function Dashboard({ user, onLogout }) {
             {dataSources && (
               <div className="flex items-center gap-1" title="Active data sources">
                 <Database className="w-3 h-3 text-gray-500" />
-                {dataSources.orats && <span className="text-[9px] px-1 py-0.5 rounded bg-neon-purple/10 text-neon-purple font-semibold">ORATS</span>}
-                {dataSources.alphaVantage && <span className="text-[9px] px-1 py-0.5 rounded bg-neon-green/10 text-neon-green font-semibold">AV</span>}
-                {dataSources.finnhub && <span className="text-[9px] px-1 py-0.5 rounded bg-gray-700 text-gray-400 font-semibold">FH</span>}
+                {dataSources.orats && <span className="text-[11px] px-1 py-0.5 rounded bg-neon-purple/10 text-neon-purple font-semibold">ORATS</span>}
+                {dataSources.alphaVantage && <span className="text-[11px] px-1 py-0.5 rounded bg-neon-green/10 text-neon-green font-semibold">AV</span>}
+                {dataSources.finnhub && <span className="text-[11px] px-1 py-0.5 rounded bg-gray-700 text-gray-400 font-semibold">FH</span>}
               </div>
             )}
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${badge.cls}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${badge.cls}`}>
               {badge.label}
             </span>
             <button

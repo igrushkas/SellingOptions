@@ -44,7 +44,7 @@ function BiasIndicator({ downPct, upPct }) {
   const up = Math.round(upPct * 100);
 
   return (
-    <div className="flex items-center gap-1.5 text-[10px]">
+    <div className="flex items-center gap-1.5 text-xs">
       <span className="text-neon-red flex items-center gap-0.5">
         <ArrowDown className="w-2.5 h-2.5" />{down}%
       </span>
@@ -75,7 +75,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-white">{stock.ticker}</span>
           <Tooltip text={signalTip[signal]} position="right">
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold uppercase cursor-help ${signalBadge[signal]}`}>
+            <span className={`text-xs px-1.5 py-0.5 rounded-full border font-semibold uppercase cursor-help ${signalBadge[signal]}`}>
               {signal}
             </span>
           </Tooltip>
@@ -92,7 +92,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
           <div>
             <div className="flex items-center gap-1">
               <span className="text-gray-500 cursor-help border-b border-dotted border-gray-600">Implied</span>
-              {stock.ivSource === 'orats' && <span className="text-[8px] text-neon-purple font-bold">ORATS</span>}
+              {stock.ivSource === 'orats' && <span className="text-[11px] text-neon-purple font-bold">ORATS</span>}
             </div>
             <div className="text-neon-orange font-bold">±{stock.impliedMove}%</div>
           </div>
@@ -115,7 +115,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
       <Tooltip text={
         <div>
           <StrategyDiagram strategy={rec.strategy} />
-          <p className="mt-1.5 pt-1.5 border-t border-white/10 text-[10px] text-gray-300 leading-relaxed">{rec.reason}</p>
+          <p className="mt-1.5 pt-1.5 border-t border-white/10 text-xs text-gray-300 leading-relaxed">{rec.reason}</p>
         </div>
       } position="bottom" wide>
         <div className={`rounded-lg p-3 mb-3 border ${strat.bg} ${strat.border} cursor-help`}>
@@ -124,7 +124,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
               {strat.icon} {rec.strategyName}
             </span>
             {rec.confidence > 0 && (
-              <span className={`text-[10px] font-semibold ${strat.text}`}>
+              <span className={`text-xs font-semibold ${strat.text}`}>
                 {rec.confidence}% conf
               </span>
             )}
@@ -139,7 +139,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
           {rec.legs.length > 0 && (
             <div className="space-y-0.5">
               {rec.legs.map((leg, i) => (
-                <div key={i} className="flex justify-between text-[10px]">
+                <div key={i} className="flex justify-between text-xs">
                   <span className={leg.type === 'Sell' || leg.type.startsWith('Sell') ? 'text-neon-orange font-semibold' : 'text-gray-500'}>
                     {formatLeg(leg)}
                   </span>
@@ -150,7 +150,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
           )}
 
           {rec.sizing && (
-            <div className="mt-1.5 pt-1.5 border-t border-white/5 flex justify-between text-[9px]">
+            <div className="mt-1.5 pt-1.5 border-t border-white/5 flex justify-between text-[11px]">
               <span className="text-gray-500">Size: <span className="text-white font-semibold">{rec.sizing.accountPct}% of account</span></span>
               <span className="text-gray-500">Exit: <span className="text-neon-green font-semibold">50% profit</span></span>
             </div>

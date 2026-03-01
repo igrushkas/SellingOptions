@@ -297,7 +297,7 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
           <div className={`text-xl font-bold ${winRate >= 75 ? 'text-neon-green' : winRate >= 50 ? 'text-neon-orange' : 'text-neon-red'}`}>
             {winRate.toFixed(0)}%
           </div>
-          <div className="text-[10px] text-gray-500">{wonTrades.length}W / {lostTrades.length}L</div>
+          <div className="text-xs text-gray-500">{wonTrades.length}W / {lostTrades.length}L</div>
         </div>
         <div className="glass-card p-3">
           <div className="flex items-center gap-1 text-xs text-gray-400">

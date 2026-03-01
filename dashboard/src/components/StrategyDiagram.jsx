@@ -140,7 +140,7 @@ export default function StrategyDiagram({ strategy, showLabel = true }) {
   return (
     <div className="w-full">
       {showLabel && (
-        <div className="text-[10px] font-bold text-white mb-1">{label}</div>
+        <div className="text-xs font-bold text-white mb-1">{label}</div>
       )}
       <svg viewBox="0 0 240 100" className="w-full h-auto" style={{ maxHeight: 80 }}>
         {/* Profit fill (green) */}
@@ -163,7 +163,7 @@ export default function StrategyDiagram({ strategy, showLabel = true }) {
         <text x="100" y="98" fill="rgba(255,255,255,0.3)" fontSize="7" textAnchor="middle" fontFamily="sans-serif">Stock Price →</text>
       </svg>
       {showLabel && (
-        <div className="text-[9px] text-gray-400 mt-0.5">{desc}</div>
+        <div className="text-[11px] text-gray-400 mt-0.5">{desc}</div>
       )}
     </div>
   );
