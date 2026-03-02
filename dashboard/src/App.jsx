@@ -99,12 +99,12 @@ function OpenTradesAlert({ trades, dimmed, onCloseTrade }) {
   const openTrades = trades.filter(t => t.status === 'open');
 
   return (
-    <div className={`rounded-2xl border p-6 transition-opacity ${
+    <div className={`rounded-2xl border p-8 transition-opacity ${
       dimmed
         ? 'border-glass-border bg-dark-700/30 opacity-40'
         : 'border-neon-green/30 bg-neon-green/5 glow-green'
     }`}>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-5">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dimmed ? 'bg-dark-600' : 'bg-neon-green/15'}`}>
           <AlertCircle className={`w-5 h-5 ${dimmed ? 'text-gray-500' : 'text-neon-green'}`} />
         </div>
@@ -336,7 +336,7 @@ function Dashboard({ user, onLogout }) {
   return (
     <div className="min-h-screen bg-dark-900 flex">
       {/* ── Sidebar ── */}
-      <aside className="hidden lg:flex flex-col w-56 bg-dark-800/60 border-r border-glass-border p-6 sticky top-0 h-screen">
+      <aside className="hidden lg:flex flex-col w-64 bg-dark-800/60 border-r border-glass-border px-8 py-10 sticky top-0 h-screen">
         <div className="flex items-center gap-2.5 mb-10">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center">
             <Crosshair className="w-4.5 h-4.5 text-white" />
@@ -424,9 +424,9 @@ function Dashboard({ user, onLogout }) {
           />
         </div>
 
-        <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-8 pb-16 space-y-8">
+        <main className="max-w-[1400px] mx-auto px-10 lg:px-16 pt-10 pb-20 space-y-10">
           {/* Welcome Banner */}
-          <div className="rounded-2xl bg-gradient-to-r from-dark-700 via-dark-600 to-dark-700 border border-glass-border p-8">
+          <div className="rounded-2xl bg-gradient-to-r from-dark-700 via-dark-600 to-dark-700 border border-glass-border p-10">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-white mb-1">
@@ -447,7 +447,7 @@ function Dashboard({ user, onLogout }) {
             </div>
 
             {/* Workflow Steps — inline in banner */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-8">
               {[
                 { step: '1', time: '9:30 AM', desc: 'Close positions', phase: 'morning' },
                 { step: '2', time: '10 AM', desc: 'Mark won/lost', phase: 'morning' },
@@ -456,7 +456,7 @@ function Dashboard({ user, onLogout }) {
               ].map(({ step, time, desc, phase }) => {
                 const isActive = timePhase === phase;
                 return (
-                  <div key={step} className={`rounded-xl border px-4 py-3 transition-all ${
+                  <div key={step} className={`rounded-xl border px-5 py-4 transition-all ${
                     isActive
                       ? 'bg-neon-blue/10 border-neon-blue/30'
                       : 'bg-dark-800/40 border-glass-border opacity-40'

@@ -68,7 +68,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
 
   return (
     <div
-      className="glass-card p-5 cursor-pointer hover:border-neon-blue/30 transition-all"
+      className="glass-card p-6 cursor-pointer hover:border-neon-blue/30 transition-all"
       onClick={() => onSelect(stock)}
     >
       <div className="flex items-center justify-between mb-3">
@@ -186,9 +186,9 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
   const tonightAMC = [...amcEarnings].sort(sortBySignalThenPrice);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* AMC Container — Tonight's evening trades first */}
-      <div className={`rounded-2xl bg-dark-800/40 border border-neon-purple/10 p-5 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
+      <div className={`rounded-2xl bg-dark-800/40 border border-neon-purple/10 p-8 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
         <button
           onClick={() => setShowAMC(!showAMC)}
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-purple/10 border border-neon-purple/20 hover:bg-neon-purple/15 transition-colors"
@@ -207,7 +207,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
         </button>
         {showAMC && (
           tonightAMC.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mt-5">
               {tonightAMC.map(stock => (
                 <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
               ))}
@@ -221,7 +221,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
       </div>
 
       {/* BMO Container — Next trading day morning */}
-      <div className={`rounded-2xl bg-dark-750/60 border border-neon-orange/10 p-5 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
+      <div className={`rounded-2xl bg-dark-750/60 border border-neon-orange/10 p-8 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
         <button
           onClick={() => setShowBMO(!showBMO)}
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-orange/10 border border-neon-orange/20 hover:bg-neon-orange/15 transition-colors"
@@ -240,7 +240,7 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
         </button>
         {showBMO && (
           tomorrowBMO.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mt-5">
               {tomorrowBMO.map(stock => (
                 <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
               ))}
