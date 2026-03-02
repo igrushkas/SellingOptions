@@ -68,14 +68,14 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
 
   return (
     <div
-      className="glass-card p-6 cursor-pointer hover:border-neon-blue/30 transition-all"
+      className="glass-card p-7 cursor-pointer hover:border-neon-blue/30 transition-all"
       onClick={() => onSelect(stock)}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-white">{stock.ticker}</span>
           <Tooltip text={signalTip[signal]} position="right">
-            <span className={`text-xs px-1.5 py-0.5 rounded-full border font-semibold uppercase cursor-help ${signalBadge[signal]}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold uppercase cursor-help ${signalBadge[signal]}`}>
               {signal}
             </span>
           </Tooltip>
@@ -84,10 +84,10 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
       </div>
 
       {stock.company && stock.company !== stock.ticker && (
-        <p className="text-xs text-gray-400 mb-3 truncate">{stock.company}</p>
+        <p className="text-xs text-gray-400 mb-4 truncate">{stock.company}</p>
       )}
 
-      <div className="grid grid-cols-3 gap-3 text-xs mb-3">
+      <div className="grid grid-cols-3 gap-4 text-xs mb-4">
         <Tooltip text="Expected stock move based on options pricing. The market is pricing in this % move after earnings." position="bottom">
           <div>
             <div className="flex items-center gap-1">
@@ -118,8 +118,8 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
           <p className="mt-1.5 pt-1.5 border-t border-white/10 text-xs text-gray-300 leading-relaxed">{rec.reason}</p>
         </div>
       } position="bottom" wide>
-        <div className={`rounded-lg p-3 mb-3 border ${strat.bg} ${strat.border} cursor-help`}>
-          <div className="flex items-center justify-between mb-1.5">
+        <div className={`rounded-xl p-4 mb-4 border ${strat.bg} ${strat.border} cursor-help`}>
+          <div className="flex items-center justify-between mb-2">
             <span className={`text-xs font-bold ${strat.text} uppercase`}>
               {strat.icon} {rec.strategyName}
             </span>
@@ -140,7 +140,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
             <div className="space-y-0.5">
               {rec.legs.map((leg, i) => (
                 <div key={i} className="flex justify-between text-xs">
-                  <span className={leg.type === 'Sell' || leg.type.startsWith('Sell') ? 'text-neon-orange font-semibold' : 'text-gray-500'}>
+                  <span className={leg.type === 'Sell' || leg.type.startsWith('Sell') ? 'text-neon-orange font-semibold' : 'text-neon-blue font-medium'}>
                     {formatLeg(leg)}
                   </span>
                   <span className="text-white font-semibold">{formatCurrency(leg.strike)}</span>
@@ -161,7 +161,7 @@ function PlayCard({ stock, onSelect, onAddTrade }) {
       {/* Add trade button */}
       <button
         onClick={(e) => { e.stopPropagation(); onAddTrade(stock); }}
-        className="w-full mt-1 py-2 rounded-lg bg-neon-purple/20 text-neon-purple text-xs font-semibold border border-neon-purple/30 hover:bg-neon-purple/30 transition-all"
+        className="w-full mt-2 py-2.5 rounded-xl bg-neon-purple/20 text-neon-purple text-xs font-semibold border border-neon-purple/30 hover:bg-neon-purple/30 transition-all"
       >
         + Log Trade
       </button>
@@ -191,15 +191,15 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
       <div className={`rounded-2xl bg-dark-800/40 border border-neon-purple/10 p-8 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
         <button
           onClick={() => setShowAMC(!showAMC)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-purple/10 border border-neon-purple/20 hover:bg-neon-purple/15 transition-colors"
+          className="w-full flex items-center gap-3 px-5 py-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20 hover:bg-neon-purple/15 transition-colors"
         >
           <Moon className="w-5 h-5 text-neon-purple" />
           <h2 className="text-base font-bold text-neon-purple">{amcLabel || "Tonight's Earnings (AMC)"}</h2>
           <span className="text-xs text-gray-400 hidden md:inline">
             — Sell options NOW, close next trading morning
           </span>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs px-2 py-0.5 rounded-full bg-neon-purple/20 text-neon-purple border border-neon-purple/30 font-semibold">
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-neon-purple/20 text-neon-purple border border-neon-purple/30 font-semibold">
               {tonightAMC.length}
             </span>
             {showAMC ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -207,13 +207,13 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
         </button>
         {showAMC && (
           tonightAMC.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mt-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-6">
               {tonightAMC.map(stock => (
                 <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
               ))}
             </div>
           ) : (
-            <div className="p-6 text-center text-gray-500 text-sm mt-3">
+            <div className="p-8 text-center text-gray-500 text-sm mt-4">
               No AMC earnings above $5 — {amcLabel || 'tonight'}
             </div>
           )
@@ -224,15 +224,15 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
       <div className={`rounded-2xl bg-dark-750/60 border border-neon-orange/10 p-8 transition-opacity ${dimPlays ? 'opacity-40 pointer-events-none' : ''}`}>
         <button
           onClick={() => setShowBMO(!showBMO)}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neon-orange/10 border border-neon-orange/20 hover:bg-neon-orange/15 transition-colors"
+          className="w-full flex items-center gap-3 px-5 py-3 rounded-xl bg-neon-orange/10 border border-neon-orange/20 hover:bg-neon-orange/15 transition-colors"
         >
           <Sun className="w-5 h-5 text-neon-orange" />
           <h2 className="text-base font-bold text-neon-orange">{bmoLabel || "Next Trading Day Morning (BMO)"}</h2>
           <span className="text-xs text-gray-400 hidden md:inline">
             — Sell options before close, IV crush at open
           </span>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs px-2 py-0.5 rounded-full bg-neon-orange/20 text-neon-orange border border-neon-orange/30 font-semibold">
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-neon-orange/20 text-neon-orange border border-neon-orange/30 font-semibold">
               {tomorrowBMO.length}
             </span>
             {showBMO ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -240,13 +240,13 @@ export default function TodayPlays({ amcEarnings = [], bmoEarnings = [], amcLabe
         </button>
         {showBMO && (
           tomorrowBMO.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mt-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-6">
               {tomorrowBMO.map(stock => (
                 <PlayCard key={stock.id} stock={stock} onSelect={onSelectStock} onAddTrade={onAddTrade} />
               ))}
             </div>
           ) : (
-            <div className="p-6 text-center text-gray-500 text-sm mt-3">
+            <div className="p-8 text-center text-gray-500 text-sm mt-4">
               No BMO earnings above $5 — {bmoLabel || 'next trading day'}
             </div>
           )

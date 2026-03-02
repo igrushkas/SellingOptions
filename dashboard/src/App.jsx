@@ -31,21 +31,21 @@ function Section({ title, icon: Icon, count, color = 'gray', defaultOpen = true,
   const c = colorMap[color] || colorMap.gray;
 
   return (
-    <div className={`rounded-xl border ${c.border} ${c.bg} p-4`}>
+    <div className={`rounded-2xl border ${c.border} ${c.bg} p-8`}>
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 text-left"
+        className="w-full flex items-center gap-3 text-left"
       >
-        {Icon && <Icon className={`w-4 h-4 ${c.text}`} />}
-        <span className={`text-sm font-bold ${c.text}`}>{title}</span>
+        {Icon && <Icon className={`w-5 h-5 ${c.text}`} />}
+        <span className={`text-base font-bold ${c.text}`}>{title}</span>
         {count != null && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 font-semibold">{count}</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-gray-400 font-semibold">{count}</span>
         )}
         <div className="ml-auto">
-          {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-500" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-500" />}
+          {open ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
         </div>
       </button>
-      {open && <div className="mt-3">{children}</div>}
+      {open && <div className="mt-6">{children}</div>}
     </div>
   );
 }
@@ -104,7 +104,7 @@ function OpenTradesAlert({ trades, dimmed, onCloseTrade }) {
         ? 'border-glass-border bg-dark-700/30 opacity-40'
         : 'border-neon-green/30 bg-neon-green/5 glow-green'
     }`}>
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-4 mb-6">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dimmed ? 'bg-dark-600' : 'bg-neon-green/15'}`}>
           <AlertCircle className={`w-5 h-5 ${dimmed ? 'text-gray-500' : 'text-neon-green'}`} />
         </div>
@@ -125,11 +125,11 @@ function OpenTradesAlert({ trades, dimmed, onCloseTrade }) {
           You did not have anything to close.
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {openTrades.map(trade => (
             <div
               key={trade.id}
-              className={`flex items-center justify-between p-3 rounded-lg border ${
+              className={`flex items-center justify-between p-4 rounded-xl border ${
                 dimmed ? 'bg-dark-700/30 border-glass-border' : 'bg-dark-700/60 border-neon-green/20'
               }`}
             >
@@ -336,45 +336,45 @@ function Dashboard({ user, onLogout }) {
   return (
     <div className="min-h-screen bg-dark-900 flex">
       {/* ── Sidebar ── */}
-      <aside className="hidden lg:flex flex-col w-64 bg-dark-800/60 border-r border-glass-border px-8 py-10 sticky top-0 h-screen">
-        <div className="flex items-center gap-2.5 mb-10">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center">
-            <Crosshair className="w-4.5 h-4.5 text-white" />
+      <aside className="hidden lg:flex flex-col w-72 bg-dark-800/60 border-r border-glass-border px-8 py-8 sticky top-0 h-screen">
+        <div className="flex items-center gap-3 mb-10">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center">
+            <Crosshair className="w-5 h-5 text-white" />
           </div>
           <span className="text-base font-bold gradient-text">Volatility Crusher</span>
         </div>
 
-        <nav className="space-y-1.5 flex-1">
-          <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 px-3">Main</div>
+        <nav className="space-y-2 flex-1">
+          <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-3">Main</div>
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 activeTab === tab.key
                   ? 'bg-neon-blue/15 text-neon-blue'
                   : 'text-gray-400 hover:text-white hover:bg-dark-700/60'
               }`}
             >
-              <tab.icon className="w-4 h-4" />
+              <tab.icon className="w-4.5 h-4.5" />
               {tab.label}
             </button>
           ))}
 
-          <div className="text-[11px] text-gray-500 uppercase tracking-wider mt-8 mb-2 px-3">Controls</div>
-          <div className="px-3 space-y-3">
+          <div className="text-[11px] text-gray-500 uppercase tracking-wider mt-10 mb-3">Controls</div>
+          <div className="space-y-4">
             <div>
-              <label className="text-[11px] text-gray-500 uppercase block mb-1">Date</label>
+              <label className="text-[11px] text-gray-500 uppercase block mb-2">Date</label>
               <input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full bg-dark-700 border border-glass-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-neon-blue"
+                className="w-full bg-dark-700 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-neon-blue"
               />
             </div>
             <button
               onClick={() => setShowWeeklyOnly(!showWeeklyOnly)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+              className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium transition-all ${
                 showWeeklyOnly
                   ? 'bg-neon-blue/15 text-neon-blue border border-neon-blue/30'
                   : 'bg-dark-700 text-gray-400 border border-glass-border'
@@ -386,13 +386,13 @@ function Dashboard({ user, onLogout }) {
         </nav>
 
         {/* Data source + refresh */}
-        <div className="mt-auto pt-4 border-t border-glass-border space-y-3">
-          <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-1 rounded-lg border font-semibold ${badge.cls}`}>{badge.label}</span>
+        <div className="mt-auto pt-6 border-t border-glass-border space-y-4 pb-4">
+          <div className="flex items-center gap-3">
+            <span className={`text-xs px-3 py-1.5 rounded-lg border font-semibold ${badge.cls}`}>{badge.label}</span>
             <button
               onClick={fetchLiveEarnings}
               disabled={loading}
-              className="p-2 rounded-lg hover:bg-dark-700 text-gray-400 hover:text-white transition-all disabled:opacity-50"
+              className="p-2.5 rounded-lg hover:bg-dark-700 text-gray-400 hover:text-white transition-all disabled:opacity-50"
               title="Refresh earnings data"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -401,7 +401,7 @@ function Dashboard({ user, onLogout }) {
           {user && (
             <button
               onClick={onLogout}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:text-neon-red hover:bg-neon-red/10 transition-all"
+              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs text-gray-500 hover:text-neon-red hover:bg-neon-red/10 transition-all"
             >
               Sign out
             </button>
@@ -424,15 +424,18 @@ function Dashboard({ user, onLogout }) {
           />
         </div>
 
-        <main className="max-w-[1400px] mx-auto px-10 lg:px-16 pt-10 pb-20 space-y-10">
+        <main className="max-w-[1400px] mx-auto px-8 lg:px-12 pt-8 pb-20 space-y-8">
           {/* Welcome Banner */}
-          <div className="rounded-2xl bg-gradient-to-r from-dark-700 via-dark-600 to-dark-700 border border-glass-border p-10">
+          <div className="rounded-2xl bg-gradient-to-r from-dark-700 via-dark-600 to-dark-700 border border-glass-border p-8">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-white mb-1">
                   {timePhase === 'morning' ? 'Good morning!' : timePhase === 'afternoon' ? 'Time to trade!' : 'Welcome back!'}
                 </h1>
-                <p className="text-sm text-gray-400">{statusMsg}</p>
+                <p className="text-sm text-gray-400 mb-1">{statusMsg}</p>
+                <p className="text-xs text-gray-500">
+                  Options-selling dashboard for IV crush around earnings — sell premium when implied volatility exceeds historical moves
+                </p>
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
@@ -447,7 +450,7 @@ function Dashboard({ user, onLogout }) {
             </div>
 
             {/* Workflow Steps — inline in banner */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-6">
               {[
                 { step: '1', time: '9:30 AM', desc: 'Close positions', phase: 'morning' },
                 { step: '2', time: '10 AM', desc: 'Mark won/lost', phase: 'morning' },
@@ -474,12 +477,18 @@ function Dashboard({ user, onLogout }) {
             </div>
           </div>
 
-          {/* KPI Cards */}
-          <KPICards earnings={allEarnings} />
+          {/* KPI Cards — in its own section */}
+          <div className="rounded-2xl bg-dark-800/40 border border-glass-border p-8">
+            <div className="flex items-center gap-2 mb-6">
+              <BarChart3 className="w-5 h-5 text-neon-blue" />
+              <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Market Overview</h2>
+            </div>
+            <KPICards earnings={allEarnings} />
+          </div>
 
           {/* Offline banner */}
           {dataSource === 'offline' && (
-            <div className="p-4 rounded-2xl bg-neon-red/10 border border-neon-red/20 flex items-center gap-3">
+            <div className="p-6 rounded-2xl bg-neon-red/10 border border-neon-red/20 flex items-center gap-4">
               <WifiOff className="w-5 h-5 text-neon-red shrink-0" />
               <div className="text-sm">
                 <span className="text-neon-red font-semibold">No live data.</span>
@@ -530,12 +539,18 @@ function Dashboard({ user, onLogout }) {
 
           {/* Trade Journal Tab */}
           {activeTab === 'journal' && (
-            <TradeTracker
-              trades={trades}
-              setTrades={setTrades}
-              addTradeStock={addTradeStock}
-              setAddTradeStock={setAddTradeStock}
-            />
+            <div className="rounded-2xl bg-dark-800/40 border border-glass-border p-8">
+              <div className="flex items-center gap-2 mb-6">
+                <BookOpen className="w-5 h-5 text-neon-purple" />
+                <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Trade Journal</h2>
+              </div>
+              <TradeTracker
+                trades={trades}
+                setTrades={setTrades}
+                addTradeStock={addTradeStock}
+                setAddTradeStock={setAddTradeStock}
+              />
+            </div>
           )}
         </main>
       </div>

@@ -70,18 +70,18 @@ export default function KPICards({ earnings }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
       {cards.map((card) => (
         <Tooltip key={card.label} text={card.tip} position="bottom">
           <div className={`glass-card p-6 w-full ${card.glow} cursor-help rounded-2xl`}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-8 h-8 rounded-xl bg-${card.color}/15 flex items-center justify-center`}>
-                <card.icon className={`w-4 h-4 text-${card.color}`} />
+            <div className="flex items-center gap-2 mb-4">
+              <div className={`w-9 h-9 rounded-xl bg-${card.color}/15 flex items-center justify-center`}>
+                <card.icon className={`w-4.5 h-4.5 text-${card.color}`} />
               </div>
             </div>
-            <div className={`text-2xl font-bold text-${card.color} mb-1`}>{card.value}</div>
+            <div className={`text-2xl font-bold text-${card.color} mb-1.5`}>{card.value}</div>
             <span className="text-xs text-gray-400 uppercase tracking-wider">{card.label}</span>
-            <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
+            <p className="text-xs text-gray-500 mt-1.5">{card.subtitle}</p>
           </div>
         </Tooltip>
       ))}

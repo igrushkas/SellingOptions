@@ -275,52 +275,52 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
     : lostTrades;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       {closingTrade && (
         <CloseTradeModal trade={closingTrade} onSave={handleCloseTrade} onClose={() => setClosingTrade(null)} />
       )}
 
       {/* P&L Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="glass-card p-3 glow-green">
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <DollarSign className="w-3 h-3" /> Total P&L
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+        <div className="glass-card p-6 glow-green rounded-2xl">
+          <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+            <DollarSign className="w-4 h-4" /> Total P&L
           </div>
-          <div className={`text-xl font-bold ${totalPnL >= 0 ? 'text-neon-green' : 'text-neon-red'}`}>
+          <div className={`text-2xl font-bold ${totalPnL >= 0 ? 'text-neon-green' : 'text-neon-red'}`}>
             {formatCurrency(totalPnL)}
           </div>
         </div>
-        <div className="glass-card p-3">
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <Award className="w-3 h-3" /> Win Rate
+        <div className="glass-card p-6 rounded-2xl">
+          <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+            <Award className="w-4 h-4" /> Win Rate
           </div>
-          <div className={`text-xl font-bold ${winRate >= 75 ? 'text-neon-green' : winRate >= 50 ? 'text-neon-orange' : 'text-neon-red'}`}>
+          <div className={`text-2xl font-bold ${winRate >= 75 ? 'text-neon-green' : winRate >= 50 ? 'text-neon-orange' : 'text-neon-red'}`}>
             {winRate.toFixed(0)}%
           </div>
-          <div className="text-xs text-gray-500">{wonTrades.length}W / {lostTrades.length}L</div>
+          <div className="text-xs text-gray-500 mt-1">{wonTrades.length}W / {lostTrades.length}L</div>
         </div>
-        <div className="glass-card p-3">
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <Target className="w-3 h-3" /> Open Positions
+        <div className="glass-card p-6 rounded-2xl">
+          <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+            <Target className="w-4 h-4" /> Open Positions
           </div>
-          <div className="text-xl font-bold text-neon-blue">{openTrades.length}</div>
+          <div className="text-2xl font-bold text-neon-blue">{openTrades.length}</div>
         </div>
-        <div className="glass-card p-3">
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <TrendingUp className="w-3 h-3" /> Premium Collected
+        <div className="glass-card p-6 rounded-2xl">
+          <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+            <TrendingUp className="w-4 h-4" /> Premium Collected
           </div>
-          <div className="text-xl font-bold text-neon-green">{formatCurrency(totalPremium)}</div>
+          <div className="text-2xl font-bold text-neon-green">{formatCurrency(totalPremium)}</div>
         </div>
-        <div className="glass-card p-3">
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <Calendar className="w-3 h-3" /> Total Trades
+        <div className="glass-card p-6 rounded-2xl">
+          <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+            <Calendar className="w-4 h-4" /> Total Trades
           </div>
-          <div className="text-xl font-bold text-white">{trades.length}</div>
+          <div className="text-2xl font-bold text-white">{trades.length}</div>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         {[
           { key: 'all', label: `All (${trades.length})` },
           { key: 'open', label: `Open (${openTrades.length})` },
@@ -330,7 +330,7 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
           <button
             key={f.key}
             onClick={() => setFilterStatus(f.key)}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
               filterStatus === f.key
                 ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/30'
                 : 'bg-dark-700 text-gray-400 border border-glass-border'
@@ -343,38 +343,38 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
 
       {/* Trade List */}
       {filteredTrades.length === 0 ? (
-        <div className="glass-card p-8 text-center">
-          <DollarSign className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+        <div className="glass-card p-10 text-center rounded-2xl">
+          <DollarSign className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400 text-sm">No trades yet. Click "Log Trade" on any earnings stock to start tracking.</p>
         </div>
       ) : (
-        <div className="glass-card overflow-hidden">
+        <div className="glass-card overflow-hidden rounded-2xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left px-4 py-2 text-xs text-gray-400 uppercase">Date</th>
-                <th className="text-left px-4 py-2 text-xs text-gray-400 uppercase">Ticker</th>
-                <th className="text-center px-4 py-2 text-xs text-gray-400 uppercase">Type</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-400 uppercase">Strike</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-400 uppercase">Premium</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-400 uppercase">Qty</th>
-                <th className="text-center px-4 py-2 text-xs text-gray-400 uppercase">Status</th>
-                <th className="text-right px-4 py-2 text-xs text-gray-400 uppercase">P&L</th>
-                <th className="px-4 py-2 text-xs text-gray-400 uppercase">Actions</th>
+                <th className="text-left px-6 py-4 text-xs text-gray-400 uppercase">Date</th>
+                <th className="text-left px-6 py-4 text-xs text-gray-400 uppercase">Ticker</th>
+                <th className="text-center px-6 py-4 text-xs text-gray-400 uppercase">Type</th>
+                <th className="text-right px-6 py-4 text-xs text-gray-400 uppercase">Strike</th>
+                <th className="text-right px-6 py-4 text-xs text-gray-400 uppercase">Premium</th>
+                <th className="text-right px-6 py-4 text-xs text-gray-400 uppercase">Qty</th>
+                <th className="text-center px-6 py-4 text-xs text-gray-400 uppercase">Status</th>
+                <th className="text-right px-6 py-4 text-xs text-gray-400 uppercase">P&L</th>
+                <th className="px-6 py-4 text-xs text-gray-400 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredTrades.sort((a, b) => new Date(b.date) - new Date(a.date)).map(trade => (
                 <tr key={trade.id} className="border-b border-glass-border/50 table-row-hover">
-                  <td className="px-4 py-2 text-xs text-gray-400">
+                  <td className="px-6 py-4 text-xs text-gray-400">
                     {new Date(trade.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-6 py-4">
                     <span className="font-bold text-white">{trade.ticker}</span>
                     <span className="text-xs text-gray-500 ml-1">@ {formatCurrency(trade.stockPrice)}</span>
                   </td>
-                  <td className="px-4 py-2 text-center">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                  <td className="px-6 py-4 text-center">
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
                       trade.tradeType === 'call'
                         ? 'bg-neon-red/15 text-neon-red'
                         : 'bg-neon-green/15 text-neon-green'
@@ -382,10 +382,10 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
                       SELL {trade.tradeType.toUpperCase()}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-right text-white font-medium">{formatCurrency(trade.strike)}</td>
-                  <td className="px-4 py-2 text-right text-neon-green">{formatCurrency(trade.premium)}</td>
-                  <td className="px-4 py-2 text-right text-gray-300">{trade.contracts}</td>
-                  <td className="px-4 py-2 text-center">
+                  <td className="px-6 py-4 text-right text-white font-medium">{formatCurrency(trade.strike)}</td>
+                  <td className="px-6 py-4 text-right text-neon-green">{formatCurrency(trade.premium)}</td>
+                  <td className="px-6 py-4 text-right text-gray-300">{trade.contracts}</td>
+                  <td className="px-6 py-4 text-center">
                     {trade.status === 'open' ? (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-neon-blue/15 text-neon-blue border border-neon-blue/30 font-semibold">
                         OPEN
@@ -400,7 +400,7 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-6 py-4 text-right">
                     {trade.pnl !== null ? (
                       <span className={`font-bold ${trade.pnl >= 0 ? 'text-neon-green' : 'text-neon-red'}`}>
                         {formatCurrency(trade.pnl)}
@@ -409,7 +409,7 @@ export default function TradeTracker({ trades, setTrades, addTradeStock, setAddT
                       <span className="text-gray-500">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-6 py-4">
                     <div className="flex items-center gap-1">
                       {trade.status === 'open' && (
                         <button
