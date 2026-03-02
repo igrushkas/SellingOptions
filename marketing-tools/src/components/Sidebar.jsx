@@ -39,7 +39,7 @@ const navSections = [
 export default function Sidebar({ activePage, onNavigate, user, onSignOut }) {
   return (
     <aside
-      className="fixed top-0 left-0 w-64 h-screen flex flex-col bg-sidebar overflow-y-auto z-40"
+      className="w-64 shrink-0 h-screen flex flex-col bg-sidebar overflow-y-auto"
       style={{ borderRight: '1px solid rgba(6,182,212,0.12)' }}
     >
       {/* ── Logo ── */}
